@@ -135,6 +135,7 @@ backend/
 │   ├── register.html      # Registration page
 │   ├── dashboard.html     # Rider dashboard
 │   ├── driver_dashboard.html # Driver dashboard
+│   ├── email_verification.html # Email Verification page
 │   ├── request_ride.html  # Ride request form
 │   └── profile.html       # User profile page
 ├── static/                # Static assets

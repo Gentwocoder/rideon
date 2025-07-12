@@ -225,6 +225,43 @@ function handleNetworkError(error) {
     }
 }
 
+// Update navigation based on authentication status
+function updateNavigation() {
+    const isAuth = isAuthenticated();
+    const userType = getUserType();
+    const userEmail = getUserEmail();
+    
+    // Navigation elements
+    const navLogin = document.getElementById('nav-login');
+    const navRegister = document.getElementById('nav-register');
+    const navUserMenu = document.getElementById('nav-user-menu');
+    const navUsername = document.getElementById('nav-username');
+    const driverMenuItem = document.getElementById('driver-menu-item');
+    
+    if (isAuth && userEmail) {
+        // Show authenticated navigation
+        if (navLogin) navLogin.classList.add('d-none');
+        if (navRegister) navRegister.classList.add('d-none');
+        if (navUserMenu) navUserMenu.classList.remove('d-none');
+        if (navUsername) navUsername.textContent = userEmail.split('@')[0];
+        
+        // Show/hide driver menu item based on user type
+        if (driverMenuItem) {
+            if (userType === 'DRIVER') {
+                driverMenuItem.classList.remove('d-none');
+            } else {
+                driverMenuItem.classList.add('d-none');
+            }
+        }
+    } else {
+        // Show unauthenticated navigation
+        if (navLogin) navLogin.classList.remove('d-none');
+        if (navRegister) navRegister.classList.remove('d-none');
+        if (navUserMenu) navUserMenu.classList.add('d-none');
+        if (driverMenuItem) driverMenuItem.classList.add('d-none');
+    }
+}
+
 // Initialize tooltips and popovers
 function initializeBootstrapComponents() {
     // Initialize tooltips
@@ -259,6 +296,7 @@ document.addEventListener('visibilitychange', function() {
 // Initialize on DOM content loaded
 document.addEventListener('DOMContentLoaded', function() {
     initializeBootstrapComponents();
+    updateNavigation();
     
     // Add fade-in animation to main content
     const main = document.querySelector('main');

@@ -188,13 +188,15 @@ async function handleRideRequest(e) {
         const formData = new FormData(e.target);
         const rideData = {
             pickup_location: formData.get('pickup_location'),
-            pickup_latitude: parseFloat(formData.get('pickup_latitude')) || 0,
-            pickup_longitude: parseFloat(formData.get('pickup_longitude')) || 0,
+            pickup_latitude: formatCoordinate(formData.get('pickup_latitude')),
+            pickup_longitude: formatCoordinate(formData.get('pickup_longitude')),
             dropoff_location: formData.get('dropoff_location'),
-            dropoff_latitude: parseFloat(formData.get('dropoff_latitude')) || 0,
-            dropoff_longitude: parseFloat(formData.get('dropoff_longitude')) || 0,
+            dropoff_latitude: formatCoordinate(formData.get('dropoff_latitude')),
+            dropoff_longitude: formatCoordinate(formData.get('dropoff_longitude')),
             notes: formData.get('notes') || ''
         };
+        
+        console.log('Sending ride data:', rideData);
         
         const response = await makeAuthenticatedRequest('/api/', {
             method: 'POST',
@@ -214,8 +216,28 @@ async function handleRideRequest(e) {
             clearEstimates();
             
         } else {
-            const error = await response.json();
-            throw new Error(error.message || 'Failed to request ride');
+            const errorData = await response.json();
+            console.log('Error response:', errorData);
+            
+            // Handle Django validation errors
+            let errorMessage = 'Failed to request ride';
+            if (errorData.message) {
+                errorMessage = errorData.message;
+            } else if (typeof errorData === 'object') {
+                // Handle Django field validation errors
+                const errorMessages = [];
+                for (const [field, errors] of Object.entries(errorData)) {
+                    if (Array.isArray(errors)) {
+                        errorMessages.push(`${field}: ${errors.join(', ')}`);
+                    } else {
+                        errorMessages.push(`${field}: ${errors}`);
+                    }
+                }
+                if (errorMessages.length > 0) {
+                    errorMessage = errorMessages.join('; ');
+                }
+            }
+            throw new Error(errorMessage);
         }
         
     } catch (error) {
@@ -232,6 +254,10 @@ async function handleRideRequest(e) {
 function validateRideForm() {
     const pickupLocation = document.getElementById('pickup_location').value.trim();
     const dropoffLocation = document.getElementById('dropoff_location').value.trim();
+    const pickupLat = parseFloat(document.getElementById('pickup_latitude').value);
+    const pickupLng = parseFloat(document.getElementById('pickup_longitude').value);
+    const dropoffLat = parseFloat(document.getElementById('dropoff_latitude').value);
+    const dropoffLng = parseFloat(document.getElementById('dropoff_longitude').value);
     
     if (!pickupLocation) {
         showAlert('Please enter a pickup location', 'warning');
@@ -245,12 +271,32 @@ function validateRideForm() {
         return false;
     }
     
+    // If coordinates are missing or zero, set default coordinates for testing
+    if (!pickupLat || !pickupLng) {
+        // Default to New York coordinates for pickup (6 decimal places)
+        document.getElementById('pickup_latitude').value = 40.712800;
+        document.getElementById('pickup_longitude').value = -74.006000;
+        showAlert('Using default coordinates for pickup location', 'info', 3000);
+    }
+    
+    if (!dropoffLat || !dropoffLng) {
+        // Default to slightly different coordinates for dropoff (6 decimal places)
+        document.getElementById('dropoff_latitude').value = 40.758900;
+        document.getElementById('dropoff_longitude').value = -73.985100;
+        showAlert('Using default coordinates for dropoff location', 'info', 3000);
+    }
+    
     if (pickupLocation.toLowerCase() === dropoffLocation.toLowerCase()) {
         showAlert('Pickup and dropoff locations cannot be the same', 'warning');
         return false;
     }
     
     return true;
+}
+
+// Helper function to format coordinates to 6 decimal places
+function formatCoordinate(coord) {
+    return parseFloat(parseFloat(coord).toFixed(6));
 }
 
 async function getCurrentLocation(type) {
@@ -265,12 +311,12 @@ async function getCurrentLocation(type) {
         
         if (type === 'pickup') {
             document.getElementById('pickup_location').value = mockAddress;
-            document.getElementById('pickup_latitude').value = location.latitude;
-            document.getElementById('pickup_longitude').value = location.longitude;
+            document.getElementById('pickup_latitude').value = formatCoordinate(location.latitude);
+            document.getElementById('pickup_longitude').value = formatCoordinate(location.longitude);
         } else {
             document.getElementById('dropoff_location').value = mockAddress;
-            document.getElementById('dropoff_latitude').value = location.latitude;
-            document.getElementById('dropoff_longitude').value = location.longitude;
+            document.getElementById('dropoff_latitude').value = formatCoordinate(location.latitude);
+            document.getElementById('dropoff_longitude').value = formatCoordinate(location.longitude);
         }
         
         updateEstimates();

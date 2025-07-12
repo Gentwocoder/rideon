@@ -31,7 +31,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     user_type = models.CharField(max_length=10, choices=USER_TYPE_CHOICES, default="RIDER")
     phone_number = models.CharField(max_length=15, unique=True)
-    email_verification_token = models.UUIDField(default=uuid4, editable=False)
+    email_verification_token = models.UUIDField(default=uuid4, null=True, blank=True, editable=False)
     is_email_verified = models.BooleanField(default=False)
     is_phone_verified = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
@@ -49,7 +49,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
 
 class DriverProfile(models.Model):
-    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='profile')
     license_number = models.CharField(max_length=50)
     vehicle_make = models.CharField(max_length=50)
     vehicle_model = models.CharField(max_length=50)

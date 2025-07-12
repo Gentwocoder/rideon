@@ -11,7 +11,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
 from .serializers import CustomTokenSerializer, UserSerializer, RegisterSerializer, DriverProfileSerializer, LoginSerializer
-from .models import CustomUser
+from .models import CustomUser, DriverProfile
 
 # Create your views here.
 @method_decorator(csrf_exempt, name='dispatch')
@@ -21,7 +21,6 @@ class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     
     def create(self, request, *args, **kwargs):
-        print("Registration request data:", request.data)  # Debug logging
         serializer = self.get_serializer(data=request.data)
         
         try:
@@ -73,27 +72,40 @@ class DriverProfileView(APIView):
     serializer_class = DriverProfileSerializer
 
     def get(self, request):
-        serializer = self.serializer_class(request.user.profile)
-        if not serializer:
-            return Response({"error": "Profile not found"}, status=404)
-        return Response(serializer.data)
+        try:
+            driver_profile = request.user.profile
+            serializer = self.serializer_class(driver_profile)
+            return Response(serializer.data)
+        except DriverProfile.DoesNotExist:
+            return Response({"error": "Driver profile not found"}, status=404)
     
     def put(self, request):
-        serializer = self.serializer_class(request.user.profile, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=400)
+        try:
+            driver_profile = request.user.profile
+            serializer = self.serializer_class(driver_profile, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data)
+            return Response(serializer.errors, status=400)
+        except DriverProfile.DoesNotExist:
+            return Response({"error": "Driver profile not found"}, status=404)
     
     def delete(self, request):
-        request.user.profile.delete()
-        return Response(status=204)
+        try:
+            request.user.profile.delete()
+            return Response(status=204)
+        except DriverProfile.DoesNotExist:
+            return Response({"error": "Driver profile not found"}, status=404)
     
     def post(self, request):
+        # Create a new driver profile for the authenticated user
+        if hasattr(request.user, 'profile'):
+            return Response({"error": "Driver profile already exists"}, status=400)
+        
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
+            serializer.save(user=request.user)
+            return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)
     
 
@@ -119,7 +131,7 @@ class LoginView(TokenObtainPairView):
         tokens = super().post(request)
 
         return Response({"message": "Logged in successfully", "tokens": tokens.data,
-                         "data": {"email": user.email}, "status": "success"},
+                         "data": {"email": user.email, "user_type": user.user_type}, "status": "success"},
                         status=status.HTTP_200_OK)
     
 

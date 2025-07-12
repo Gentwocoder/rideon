@@ -104,12 +104,17 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
             localStorage.setItem('access_token', result.tokens.access);
             localStorage.setItem('refresh_token', result.tokens.refresh);
             localStorage.setItem('user_email', result.data.email);
+            localStorage.setItem('user_type', result.data.user_type);
             
             showAlert('Login successful! Redirecting...', 'success');
             
-            // Redirect to dashboard after short delay
+            // Redirect to appropriate dashboard based on user type
             setTimeout(() => {
-                window.location.href = '/dashboard/';
+                if (result.data.user_type === 'DRIVER') {
+                    window.location.href = '/driver-dashboard/';
+                } else {
+                    window.location.href = '/dashboard/';
+                }
             }, 1000);
         } else {
             showAlert(result.message || 'Login failed. Please try again.', 'danger');
@@ -143,7 +148,7 @@ function togglePassword() {
 // Redirect if already logged in
 document.addEventListener('DOMContentLoaded', function() {
     if (isAuthenticated()) {
-        window.location.href = '/dashboard/';
+        redirectToDashboard();
     }
 });
 </script>

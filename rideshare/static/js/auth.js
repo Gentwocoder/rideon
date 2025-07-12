@@ -1,5 +1,25 @@
 // Authentication utilities
 
+// Get user type from localStorage
+function getUserType() {
+    return localStorage.getItem('user_type');
+}
+
+// Get user email from localStorage
+function getUserEmail() {
+    return localStorage.getItem('user_email');
+}
+
+// Redirect to appropriate dashboard based on user type
+function redirectToDashboard() {
+    const userType = getUserType();
+    if (userType === 'DRIVER') {
+        window.location.href = '/driver-dashboard/';
+    } else {
+        window.location.href = '/dashboard/';
+    }
+}
+
 // Check if user is authenticated
 function isAuthenticated() {
     const token = localStorage.getItem('access_token');

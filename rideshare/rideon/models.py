@@ -36,7 +36,7 @@ class Ride(models.Model):
         ordering = ['-created_at']
     
     def __str__(self):
-        return f"Ride {self.id} - {self.rider.username} ({self.status})"
+        return f"Ride {self.id} - {self.rider.email} ({self.status})"
 
 class RideRequest(models.Model):
     ride = models.ForeignKey(Ride, on_delete=models.CASCADE)
@@ -48,4 +48,4 @@ class RideRequest(models.Model):
         unique_together = ['ride', 'driver']
     
     def __str__(self):
-        return f"Request for Ride {self.ride.id} by {self.driver.username}"
+        return f"Request for Ride {self.ride.id} by {self.driver.email}"
