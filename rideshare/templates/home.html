@@ -1,0 +1,171 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Welcome to Rideon{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero-section bg-primary text-white">
+    <div class="container">
+        <div class="row align-items-center min-vh-75">
+            <div class="col-lg-6">
+                <h1 class="display-4 fw-bold mb-4">
+                    Your Ride, Your Way
+                </h1>
+                <p class="lead mb-4">
+                    Connect with drivers in your area for safe, reliable, and affordable rides. 
+                    Join thousands of satisfied customers and drivers on Rideon.
+                </p>
+                <div class="d-flex flex-wrap gap-3">
+                    <a href="{% url 'register' %}" class="btn btn-light btn-lg">
+                        <i class="fas fa-user-plus me-2"></i>Get Started
+                    </a>
+                    <a href="#how-it-works" class="btn btn-outline-light btn-lg">
+                        <i class="fas fa-info-circle me-2"></i>Learn More
+                    </a>
+                </div>
+            </div>
+            <div class="col-lg-6 text-center">
+                <i class="fas fa-car display-1 opacity-75"></i>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Quick Actions for Authenticated Users -->
+<section class="quick-actions d-none" id="user-quick-actions">
+    <div class="container py-5">
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="fas fa-map-marker-alt text-primary display-4 mb-3"></i>
+                        <h4>Request a Ride</h4>
+                        <p class="text-muted">Need to go somewhere? Request a ride and get connected with nearby drivers.</p>
+                        <a href="{% url 'request_ride' %}" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>Request Ride
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 mb-4" id="driver-quick-action">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="fas fa-car text-success display-4 mb-3"></i>
+                        <h4>Start Driving</h4>
+                        <p class="text-muted">Ready to earn? View available ride requests and start accepting rides.</p>
+                        <a href="{% url 'driver_dashboard' %}" class="btn btn-success">
+                            <i class="fas fa-steering-wheel me-2"></i>Drive Now
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- How It Works Section -->
+<section id="how-it-works" class="py-5 bg-light">
+    <div class="container">
+        <h2 class="text-center mb-5">How Rideon Works</h2>
+        <div class="row">
+            <div class="col-md-4 mb-4">
+                <div class="text-center">
+                    <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+                        <i class="fas fa-user-plus fa-2x"></i>
+                    </div>
+                    <h4>1. Sign Up</h4>
+                    <p class="text-muted">Create your account as a rider or driver. Quick and easy registration process.</p>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="text-center">
+                    <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+                        <i class="fas fa-search fa-2x"></i>
+                    </div>
+                    <h4>2. Find a Match</h4>
+                    <p class="text-muted">Riders request rides, drivers see nearby requests. Smart matching system.</p>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="text-center">
+                    <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+                        <i class="fas fa-route fa-2x"></i>
+                    </div>
+                    <h4>3. Enjoy the Ride</h4>
+                    <p class="text-muted">Track your ride in real-time. Safe, comfortable, and reliable transportation.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section class="py-5">
+    <div class="container">
+        <h2 class="text-center mb-5">Why Choose Rideon?</h2>
+        <div class="row">
+            <div class="col-lg-4 mb-4">
+                <div class="card border-0 h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-shield-alt text-primary display-4 mb-3"></i>
+                        <h5>Safe & Secure</h5>
+                        <p class="text-muted">All drivers are verified. Your safety is our top priority with 24/7 support.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4 mb-4">
+                <div class="card border-0 h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-dollar-sign text-success display-4 mb-3"></i>
+                        <h5>Affordable Prices</h5>
+                        <p class="text-muted">Competitive pricing with transparent fare calculation. No hidden fees.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4 mb-4">
+                <div class="card border-0 h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-clock text-warning display-4 mb-3"></i>
+                        <h5>Quick & Reliable</h5>
+                        <p class="text-muted">Fast pickup times and reliable service. Get where you need to go, when you need to be there.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="bg-primary text-white py-5">
+    <div class="container text-center">
+        <h2 class="mb-4">Ready to Get Started?</h2>
+        <p class="lead mb-4">Join thousands of satisfied riders and drivers on Rideon today!</p>
+        <div class="d-flex justify-content-center gap-3 flex-wrap">
+            <a href="{% url 'register' %}" class="btn btn-light btn-lg">
+                <i class="fas fa-user-plus me-2"></i>Sign Up as Rider
+            </a>
+            <a href="{% url 'register' %}" class="btn btn-outline-light btn-lg">
+                <i class="fas fa-car me-2"></i>Become a Driver
+            </a>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Show user-specific content if logged in
+    if (isAuthenticated()) {
+        document.getElementById('user-quick-actions').classList.remove('d-none');
+        
+        // Show driver actions only for drivers
+        const userType = localStorage.getItem('user_type');
+        if (userType !== 'DRIVER') {
+            document.getElementById('driver-quick-action').style.display = 'none';
+        }
+    }
+});
+</script>
+{% endblock %}

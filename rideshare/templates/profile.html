@@ -1,0 +1,350 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Profile - Rideon{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <!-- Profile Information -->
+        <div class="col-lg-8 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user me-2"></i>Profile Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="profile-form">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="email" class="form-label">Email Address</label>
+                                <input type="email" class="form-control" id="email" name="email" readonly>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="phone_number" class="form-label">Phone Number</label>
+                                <input type="tel" class="form-control" id="phone_number" name="phone_number">
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="user_type" class="form-label">Account Type</label>
+                                <input type="text" class="form-control" id="user_type" name="user_type" readonly>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Account Status</label>
+                                <div class="d-flex gap-3">
+                                    <span class="badge bg-success" id="email-status">Email Verified</span>
+                                    <span class="badge bg-warning" id="phone-status">Phone Pending</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Update Profile
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="loadProfile()">
+                                <i class="fas fa-sync-alt me-2"></i>Refresh
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Driver Profile (if driver) -->
+        <div class="col-lg-4 mb-4" id="driver-profile-section" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-car me-2"></i>Driver Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="driver-profile-form">
+                        <div class="mb-3">
+                            <label for="license_number" class="form-label">License Number</label>
+                            <input type="text" class="form-control" id="license_number" name="license_number">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="vehicle_make" class="form-label">Vehicle Make</label>
+                            <input type="text" class="form-control" id="vehicle_make" name="vehicle_make">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="vehicle_model" class="form-label">Vehicle Model</label>
+                            <input type="text" class="form-control" id="vehicle_model" name="vehicle_model">
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label for="vehicle_year" class="form-label">Year</label>
+                                <input type="number" class="form-control" id="vehicle_year" name="vehicle_year" min="2000" max="2025">
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label for="vehicle_color" class="form-label">Color</label>
+                                <input type="text" class="form-control" id="vehicle_color" name="vehicle_color">
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="vehicle_plate" class="form-label">License Plate</label>
+                            <input type="text" class="form-control" id="vehicle_plate" name="vehicle_plate">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Driver Rating</label>
+                            <div class="d-flex align-items-center">
+                                <span class="rating-stars me-2" id="driver-rating">
+                                    <i class="fas fa-star"></i>
+                                    <i class="fas fa-star"></i>
+                                    <i class="fas fa-star"></i>
+                                    <i class="fas fa-star"></i>
+                                    <i class="fas fa-star"></i>
+                                </span>
+                                <span id="rating-text">5.0</span>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-success w-100">
+                            <i class="fas fa-save me-2"></i>Update Driver Info
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Account Actions -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-cog me-2"></i>Account Actions
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <div class="d-grid">
+                                <button class="btn btn-outline-primary" onclick="changePassword()">
+                                    <i class="fas fa-key me-2"></i>Change Password
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="d-grid">
+                                <button class="btn btn-outline-warning" onclick="deactivateAccount()">
+                                    <i class="fas fa-pause me-2"></i>Deactivate Account
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="d-grid">
+                                <button class="btn btn-outline-danger" onclick="deleteAccount()">
+                                    <i class="fas fa-trash me-2"></i>Delete Account
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Redirect if not authenticated
+    if (!isAuthenticated()) {
+        showAlert('Please login to view your profile', 'warning');
+        setTimeout(() => {
+            window.location.href = '/login/';
+        }, 2000);
+        return;
+    }
+
+    loadProfile();
+    
+    // Set up form submissions
+    document.getElementById('profile-form').addEventListener('submit', updateProfile);
+    document.getElementById('driver-profile-form').addEventListener('submit', updateDriverProfile);
+});
+
+async function loadProfile() {
+    try {
+        const response = await makeAuthenticatedRequest('/profile/');
+        
+        if (response.ok) {
+            const profile = await response.json();
+            populateProfile(profile);
+            
+            // Load driver profile if user is a driver
+            if (profile.user_type === 'DRIVER') {
+                await loadDriverProfile();
+            }
+        } else {
+            throw new Error('Failed to load profile');
+        }
+    } catch (error) {
+        console.error('Error loading profile:', error);
+        showAlert('Error loading profile data', 'danger');
+    }
+}
+
+function populateProfile(profile) {
+    document.getElementById('email').value = profile.email || '';
+    document.getElementById('phone_number').value = profile.phone_number || '';
+    document.getElementById('user_type').value = profile.user_type || '';
+    
+    // Update status badges
+    const emailStatus = document.getElementById('email-status');
+    const phoneStatus = document.getElementById('phone-status');
+    
+    if (profile.is_email_verified) {
+        emailStatus.textContent = 'Email Verified';
+        emailStatus.className = 'badge bg-success';
+    } else {
+        emailStatus.textContent = 'Email Pending';
+        emailStatus.className = 'badge bg-warning';
+    }
+    
+    if (profile.is_phone_verified) {
+        phoneStatus.textContent = 'Phone Verified';
+        phoneStatus.className = 'badge bg-success';
+    } else {
+        phoneStatus.textContent = 'Phone Pending';
+        phoneStatus.className = 'badge bg-warning';
+    }
+    
+    // Show driver section if driver
+    if (profile.user_type === 'DRIVER') {
+        document.getElementById('driver-profile-section').style.display = 'block';
+    }
+}
+
+async function loadDriverProfile() {
+    try {
+        const response = await makeAuthenticatedRequest('/driver-profile/');
+        
+        if (response.ok) {
+            const driverProfile = await response.json();
+            populateDriverProfile(driverProfile);
+        }
+    } catch (error) {
+        console.error('Error loading driver profile:', error);
+        // Driver profile might not exist yet, that's okay
+    }
+}
+
+function populateDriverProfile(profile) {
+    document.getElementById('license_number').value = profile.license_number || '';
+    document.getElementById('vehicle_make').value = profile.vehicle_make || '';
+    document.getElementById('vehicle_model').value = profile.vehicle_model || '';
+    document.getElementById('vehicle_year').value = profile.vehicle_year || '';
+    document.getElementById('vehicle_color').value = profile.vehicle_color || '';
+    document.getElementById('vehicle_plate').value = profile.vehicle_plate || '';
+    
+    // Update rating display
+    const rating = parseFloat(profile.rating) || 5.0;
+    document.getElementById('rating-text').textContent = rating.toFixed(1);
+    updateStarRating(rating);
+}
+
+function updateStarRating(rating) {
+    const stars = document.querySelectorAll('#driver-rating i');
+    const fullStars = Math.floor(rating);
+    
+    stars.forEach((star, index) => {
+        if (index < fullStars) {
+            star.className = 'fas fa-star';
+        } else if (index === fullStars && rating % 1 !== 0) {
+            star.className = 'fas fa-star-half-alt';
+        } else {
+            star.className = 'far fa-star';
+        }
+    });
+}
+
+async function updateProfile(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const data = {
+        phone_number: formData.get('phone_number')
+    };
+    
+    try {
+        const response = await makeAuthenticatedRequest('/profile/', {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+            showAlert('Profile updated successfully!', 'success');
+        } else {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to update profile');
+        }
+    } catch (error) {
+        console.error('Error updating profile:', error);
+        showAlert(error.message || 'Error updating profile', 'danger');
+    }
+}
+
+async function updateDriverProfile(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const data = {
+        license_number: formData.get('license_number'),
+        vehicle_make: formData.get('vehicle_make'),
+        vehicle_model: formData.get('vehicle_model'),
+        vehicle_year: parseInt(formData.get('vehicle_year')),
+        vehicle_color: formData.get('vehicle_color'),
+        vehicle_plate: formData.get('vehicle_plate')
+    };
+    
+    try {
+        const response = await makeAuthenticatedRequest('/driver-profile/', {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+            showAlert('Driver profile updated successfully!', 'success');
+        } else {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to update driver profile');
+        }
+    } catch (error) {
+        console.error('Error updating driver profile:', error);
+        showAlert(error.message || 'Error updating driver profile', 'danger');
+    }
+}
+
+function changePassword() {
+    showAlert('Change password feature coming soon!', 'info');
+}
+
+function deactivateAccount() {
+    if (confirm('Are you sure you want to deactivate your account? You can reactivate it later.')) {
+        showAlert('Account deactivation feature coming soon!', 'info');
+    }
+}
+
+function deleteAccount() {
+    if (confirm('Are you sure you want to permanently delete your account? This action cannot be undone.')) {
+        if (confirm('This will permanently delete all your data. Are you absolutely sure?')) {
+            showAlert('Account deletion feature coming soon!', 'info');
+        }
+    }
+}
+</script>
+{% endblock %}

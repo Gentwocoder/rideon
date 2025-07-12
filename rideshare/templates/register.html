@@ -1,0 +1,305 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Register - Rideon{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center min-vh-75 align-items-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white text-center">
+                    <h4 class="mb-0">
+                        <i class="fas fa-user-plus me-2"></i>Join Rideon
+                    </h4>
+                </div>
+                <div class="card-body p-4">
+                    <!-- User Type Selection -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">I want to:</label>
+                        <div class="row">
+                            <div class="col-md-6 mb-2">
+                                <input type="radio" class="btn-check" name="user_type" id="rider" value="RIDER" checked>
+                                <label class="btn btn-outline-primary w-100" for="rider">
+                                    <i class="fas fa-user me-2"></i>Book Rides
+                                </label>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <input type="radio" class="btn-check" name="user_type" id="driver" value="DRIVER">
+                                <label class="btn btn-outline-success w-100" for="driver">
+                                    <i class="fas fa-car me-2"></i>Provide Rides
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <form id="registerForm">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="email" class="form-label">Email Address *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-envelope"></i>
+                                    </span>
+                                    <input type="email" class="form-control" id="email" name="email" required>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="phone_number" class="form-label">Phone Number *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-phone"></i>
+                                    </span>
+                                    <input type="tel" class="form-control" id="phone_number" name="phone_number" required>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="password" class="form-label">Password *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-lock"></i>
+                                    </span>
+                                    <input type="password" class="form-control" id="password" name="password" required>
+                                    <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('password')">
+                                        <i class="fas fa-eye" id="password-toggle-icon"></i>
+                                    </button>
+                                </div>
+                                <small class="form-text text-muted">Minimum 6 characters</small>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="confirm_password" class="form-label">Confirm Password *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-lock"></i>
+                                    </span>
+                                    <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                                    <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('confirm_password')">
+                                        <i class="fas fa-eye" id="confirm-password-toggle-icon"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Driver-specific fields (hidden by default) -->
+                        <div id="driver-fields" class="d-none">
+                            <hr>
+                            <h6 class="text-success mb-3">
+                                <i class="fas fa-car me-2"></i>Driver Information
+                            </h6>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="license_number" class="form-label">License Number</label>
+                                    <input type="text" class="form-control" id="license_number" name="license_number">
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="vehicle_make" class="form-label">Vehicle Make</label>
+                                    <input type="text" class="form-control" id="vehicle_make" name="vehicle_make" placeholder="e.g., Toyota">
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="vehicle_model" class="form-label">Vehicle Model</label>
+                                    <input type="text" class="form-control" id="vehicle_model" name="vehicle_model" placeholder="e.g., Camry">
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="vehicle_year" class="form-label">Vehicle Year</label>
+                                    <input type="number" class="form-control" id="vehicle_year" name="vehicle_year" min="2000" max="2025">
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="vehicle_color" class="form-label">Vehicle Color</label>
+                                    <input type="text" class="form-control" id="vehicle_color" name="vehicle_color" placeholder="e.g., Blue">
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="vehicle_plate" class="form-label">License Plate</label>
+                                    <input type="text" class="form-control" id="vehicle_plate" name="vehicle_plate" placeholder="e.g., ABC-123">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="terms" required>
+                            <label class="form-check-label" for="terms">
+                                I agree to the <a href="#" class="text-primary">Terms of Service</a> and 
+                                <a href="#" class="text-primary">Privacy Policy</a> *
+                            </label>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-100" id="registerBtn">
+                            <i class="fas fa-user-plus me-2"></i>
+                            <span id="registerBtnText">Create Account</span>
+                            <div class="spinner-border spinner-border-sm d-none" id="registerSpinner"></div>
+                        </button>
+                    </form>
+                    
+                    <hr class="my-4">
+                    
+                    <div class="text-center">
+                        <p class="mb-2">Already have an account?</p>
+                        <a href="{% url 'login' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-sign-in-alt me-2"></i>Login
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Toggle driver fields based on user type selection
+document.querySelectorAll('input[name="user_type"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        const driverFields = document.getElementById('driver-fields');
+        const driverInputs = driverFields.querySelectorAll('input');
+        
+        if (this.value === 'DRIVER') {
+            driverFields.classList.remove('d-none');
+            // Make driver fields required
+            driverInputs.forEach(input => {
+                if (['license_number', 'vehicle_make', 'vehicle_model', 'vehicle_year', 'vehicle_color', 'vehicle_plate'].includes(input.name)) {
+                    input.required = true;
+                }
+            });
+        } else {
+            driverFields.classList.add('d-none');
+            // Remove required attribute from driver fields
+            driverInputs.forEach(input => {
+                input.required = false;
+            });
+        }
+    });
+});
+
+document.getElementById('registerForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const registerBtn = document.getElementById('registerBtn');
+    const registerBtnText = document.getElementById('registerBtnText');
+    const registerSpinner = document.getElementById('registerSpinner');
+    
+    // Validate passwords match
+    const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirm_password').value;
+    
+    if (password !== confirmPassword) {
+        showAlert('Passwords do not match!', 'danger');
+        return;
+    }
+    
+    // Show loading state
+    registerBtnText.textContent = 'Creating Account...';
+    registerSpinner.classList.remove('d-none');
+    registerBtn.disabled = true;
+    
+    const formData = new FormData(this);
+    const userType = document.querySelector('input[name="user_type"]:checked').value;
+    
+    const data = {
+        email: formData.get('email'),
+        phone_number: formData.get('phone_number'),
+        password: formData.get('password'),
+        user_type: userType
+    };
+    
+    try {
+        const response = await fetch('/auth/register/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            showAlert('Account created successfully! Please check your email to verify your account.', 'success');
+            
+            // If driver, also create driver profile
+            if (userType === 'DRIVER' && result.id) {
+                await createDriverProfile(result.id, formData);
+            }
+            
+            // Redirect to login after delay
+            setTimeout(() => {
+                window.location.href = '/auth/login/';
+            }, 2000);
+        } else {
+            const errorMessage = result.message || Object.values(result).flat().join(', ') || 'Registration failed. Please try again.';
+            showAlert(errorMessage, 'danger');
+        }
+    } catch (error) {
+        console.error('Registration error:', error);
+        showAlert('An error occurred. Please try again.', 'danger');
+    } finally {
+        // Reset button state
+        registerBtnText.textContent = 'Create Account';
+        registerSpinner.classList.add('d-none');
+        registerBtn.disabled = false;
+    }
+});
+
+async function createDriverProfile(userId, formData) {
+    const driverData = {
+        user: userId,
+        license_number: formData.get('license_number'),
+        vehicle_make: formData.get('vehicle_make'),
+        vehicle_model: formData.get('vehicle_model'),
+        vehicle_year: parseInt(formData.get('vehicle_year')),
+        vehicle_color: formData.get('vehicle_color'),
+        vehicle_plate: formData.get('vehicle_plate')
+    };
+    
+    try {
+        await fetch('/driver-profile/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(driverData)
+        });
+    } catch (error) {
+        console.error('Driver profile creation error:', error);
+    }
+}
+
+function togglePassword(fieldId) {
+    const passwordField = document.getElementById(fieldId);
+    const toggleIcon = document.getElementById(fieldId + '-toggle-icon');
+    
+    if (passwordField.type === 'password') {
+        passwordField.type = 'text';
+        toggleIcon.classList.remove('fa-eye');
+        toggleIcon.classList.add('fa-eye-slash');
+    } else {
+        passwordField.type = 'password';
+        toggleIcon.classList.remove('fa-eye-slash');
+        toggleIcon.classList.add('fa-eye');
+    }
+}
+
+// Redirect if already logged in
+document.addEventListener('DOMContentLoaded', function() {
+    if (isAuthenticated()) {
+        window.location.href = '/dashboard/';
+    }
+});
+</script>
+{% endblock %}

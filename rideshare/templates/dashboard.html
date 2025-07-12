@@ -1,0 +1,310 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard - Rideon{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Welcome Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card dashboard-card">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h2 class="mb-2">
+                                <i class="fas fa-tachometer-alt text-primary me-2"></i>
+                                Welcome back, <span id="user-name">User</span>!
+                            </h2>
+                            <p class="text-muted mb-0">Here's what's happening with your rides today.</p>
+                        </div>
+                        <div class="col-md-4 text-md-end">
+                            <div class="d-flex flex-wrap gap-2 justify-content-md-end">
+                                <a href="/request-ride/" class="btn btn-primary">
+                                    <i class="fas fa-plus me-2"></i>Request Ride
+                                </a>
+                                <button class="btn btn-outline-primary" onclick="refreshDashboard()">
+                                    <i class="fas fa-sync-alt me-2"></i>Refresh
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card stat-card h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-route display-6 mb-3"></i>
+                    <h3 class="display-6 mb-1" id="total-rides">0</h3>
+                    <p class="mb-0">Total Rides</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card stat-card h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-clock display-6 mb-3"></i>
+                    <h3 class="display-6 mb-1" id="pending-rides">0</h3>
+                    <p class="mb-0">Pending Rides</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card stat-card h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-check-circle display-6 mb-3"></i>
+                    <h3 class="display-6 mb-1" id="completed-rides">0</h3>
+                    <p class="mb-0">Completed</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card stat-card h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-dollar-sign display-6 mb-3"></i>
+                    <h3 class="display-6 mb-1" id="total-spent">$0</h3>
+                    <p class="mb-0">Total Spent</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Rides -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-history me-2"></i>Recent Rides
+                    </h5>
+                    <div class="d-flex gap-2">
+                        <select class="form-select form-select-sm" id="status-filter" style="width: auto;">
+                            <option value="">All Status</option>
+                            <option value="pending">Pending</option>
+                            <option value="accepted">Accepted</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="completed">Completed</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="rides-loading" class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Loading your rides...</p>
+                    </div>
+                    
+                    <div id="rides-container" class="d-none">
+                        <!-- Rides will be loaded here -->
+                    </div>
+                    
+                    <div id="no-rides" class="text-center py-5 d-none">
+                        <i class="fas fa-car text-muted display-4 mb-3"></i>
+                        <h5 class="text-muted">No rides found</h5>
+                        <p class="text-muted">You haven't taken any rides yet.</p>
+                        <a href="/request-ride/" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>Request Your First Ride
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let allRides = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadDashboardData();
+    
+    // Filter rides by status
+    document.getElementById('status-filter').addEventListener('change', function() {
+        filterRides(this.value);
+    });
+    
+    // Listen for data refresh events
+    document.addEventListener('refreshData', function() {
+        loadDashboardData();
+    });
+});
+
+async function loadDashboardData() {
+    try {
+        // Load user profile
+        const userProfile = await getUserProfile();
+        if (userProfile) {
+            document.getElementById('user-name').textContent = userProfile.email.split('@')[0];
+        }
+        
+        // Load rides
+        await loadRides();
+        
+    } catch (error) {
+        console.error('Error loading dashboard data:', error);
+        showAlert('Error loading dashboard data', 'danger');
+    }
+}
+
+async function loadRides() {
+    try {
+        const response = await makeAuthenticatedRequest('/api/');
+        
+        if (response.ok) {
+            allRides = await response.json();
+            displayRides(allRides);
+            updateStatistics(allRides);
+        } else {
+            throw new Error('Failed to load rides');
+        }
+    } catch (error) {
+        console.error('Error loading rides:', error);
+        document.getElementById('rides-loading').classList.add('d-none');
+        document.getElementById('no-rides').classList.remove('d-none');
+        showAlert('Error loading rides', 'danger');
+    }
+}
+
+function displayRides(rides) {
+    const ridesContainer = document.getElementById('rides-container');
+    const ridesLoading = document.getElementById('rides-loading');
+    const noRides = document.getElementById('no-rides');
+    
+    ridesLoading.classList.add('d-none');
+    
+    if (rides.length === 0) {
+        ridesContainer.classList.add('d-none');
+        noRides.classList.remove('d-none');
+        return;
+    }
+    
+    ridesContainer.classList.remove('d-none');
+    noRides.classList.add('d-none');
+    
+    const ridesHTML = rides.map(ride => `
+        <div class="card ride-card mb-3">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-start">
+                            <div class="me-3">
+                                <i class="fas fa-map-marker-alt text-success fs-5"></i>
+                                <div class="border-start border-2 ms-2" style="height: 20px;"></div>
+                                <i class="fas fa-flag text-danger fs-5"></i>
+                            </div>
+                            <div>
+                                <p class="mb-1 fw-semibold">${ride.pickup_location}</p>
+                                <p class="mb-0 text-muted">${ride.dropoff_location}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-2 text-center">
+                        ${formatRideStatus(ride.status)}
+                    </div>
+                    <div class="col-md-2 text-center">
+                        <small class="text-muted">Date</small>
+                        <p class="mb-0 fw-semibold">${formatDate(ride.created_at)}</p>
+                    </div>
+                    <div class="col-md-2 text-end">
+                        <div class="dropdown">
+                            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+                                Actions
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="#" onclick="viewRideDetails(${ride.id})">
+                                    <i class="fas fa-eye me-2"></i>View Details
+                                </a></li>
+                                ${ride.status === 'pending' ? `
+                                    <li><a class="dropdown-item text-danger" href="#" onclick="cancelRide(${ride.id})">
+                                        <i class="fas fa-times me-2"></i>Cancel
+                                    </a></li>
+                                ` : ''}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                ${ride.fare ? `
+                    <div class="row mt-2">
+                        <div class="col-12">
+                            <small class="text-muted">
+                                Fare: ${formatCurrency(ride.fare)} | 
+                                Distance: ${formatDistance(ride.distance)} |
+                                Duration: ${formatDuration(ride.duration)}
+                            </small>
+                        </div>
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+    `).join('');
+    
+    ridesContainer.innerHTML = ridesHTML;
+}
+
+function updateStatistics(rides) {
+    const totalRides = rides.length;
+    const pendingRides = rides.filter(r => r.status === 'pending').length;
+    const completedRides = rides.filter(r => r.status === 'completed').length;
+    const totalSpent = rides
+        .filter(r => r.fare)
+        .reduce((sum, r) => sum + parseFloat(r.fare), 0);
+    
+    document.getElementById('total-rides').textContent = totalRides;
+    document.getElementById('pending-rides').textContent = pendingRides;
+    document.getElementById('completed-rides').textContent = completedRides;
+    document.getElementById('total-spent').textContent = formatCurrency(totalSpent);
+}
+
+function filterRides(status) {
+    let filteredRides = allRides;
+    
+    if (status) {
+        filteredRides = allRides.filter(ride => ride.status === status);
+    }
+    
+    displayRides(filteredRides);
+}
+
+function refreshDashboard() {
+    showAlert('Refreshing dashboard...', 'info', 2000);
+    loadDashboardData();
+}
+
+async function cancelRide(rideId) {
+    if (!confirm('Are you sure you want to cancel this ride?')) {
+        return;
+    }
+    
+    try {
+        const response = await makeAuthenticatedRequest(`/api/${rideId}/status/`, {
+            method: 'PUT',
+            body: JSON.stringify({ status: 'cancelled' })
+        });
+        
+        if (response.ok) {
+            showAlert('Ride cancelled successfully', 'success');
+            loadRides(); // Refresh the list
+        } else {
+            throw new Error('Failed to cancel ride');
+        }
+    } catch (error) {
+        console.error('Error cancelling ride:', error);
+        showAlert('Error cancelling ride', 'danger');
+    }
+}
+
+function viewRideDetails(rideId) {
+    // This would open a modal or navigate to a detailed view
+    showAlert('Ride details feature coming soon!', 'info');
+}
+</script>
+{% endblock %}

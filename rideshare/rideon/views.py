@@ -40,15 +40,15 @@ from rest_framework.response import Response
 from django.db.models import Q
 from .models import Ride, RideRequest
 from .serializers import RideSerializer, RideCreateSerializer, RideRequestSerializer
-from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
+# from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
-@extend_schema(responses={200: RideSerializer(many=True)},
-               parameters=[
-                   OpenApiParameter(name='status', type=str, description='Filter rides by status'),
-                   OpenApiParameter(name='driver', type=str, description='Filter rides by driver ID')
-               ])
+# @extend_schema(responses={200: RideSerializer(many=True)},
+#                parameters=[
+#                    OpenApiParameter(name='status', type=str, description='Filter rides by status'),
+#                    OpenApiParameter(name='driver', type=str, description='Filter rides by driver ID')
+#                ])
 def rides(request):
     if request.method == 'GET':
         # Get rides for the current user
@@ -67,7 +67,7 @@ def rides(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-@extend_schema(responses={200: RideSerializer(many=True)})
+# @extend_schema(responses={200: RideSerializer(many=True)})
 def available_rides(request):
     """Get all pending rides for drivers"""
     pending_rides = Ride.objects.filter(status='pending').exclude(rider=request.user)
@@ -76,7 +76,7 @@ def available_rides(request):
 
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
-@extend_schema(responses={200: RideSerializer})
+# @extend_schema(responses={200: RideSerializer})
 def accept_ride(request, ride_id):
     try:
         ride = Ride.objects.get(id=ride_id, status='pending')
@@ -89,7 +89,7 @@ def accept_ride(request, ride_id):
 
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
-@extend_schema(responses={200: RideSerializer})
+# @extend_schema(responses={200: RideSerializer})
 def update_ride_status(request, ride_id):
     try:
         ride = Ride.objects.get(id=ride_id)

@@ -1,0 +1,567 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Driver Dashboard - Rideon{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Driver Status Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card dashboard-card">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h2 class="mb-2">
+                                <i class="fas fa-car text-success me-2"></i>
+                                Driver Dashboard
+                            </h2>
+                            <p class="text-muted mb-0">Manage your rides and view earnings</p>
+                        </div>
+                        <div class="col-md-4 text-md-end">
+                            <div class="d-flex align-items-center justify-content-md-end gap-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="availability-toggle">
+                                    <label class="form-check-label" for="availability-toggle">
+                                        <span id="availability-text">Offline</span>
+                                    </label>
+                                </div>
+                                <button class="btn btn-outline-primary" onclick="refreshDriverDashboard()">
+                                    <i class="fas fa-sync-alt me-2"></i>Refresh
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Driver Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card stat-card h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-route display-6 mb-3"></i>
+                    <h3 class="display-6 mb-1" id="total-trips">0</h3>
+                    <p class="mb-0">Total Trips</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card stat-card h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-dollar-sign display-6 mb-3"></i>
+                    <h3 class="display-6 mb-1" id="total-earnings">$0</h3>
+                    <p class="mb-0">Total Earnings</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card stat-card h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-star display-6 mb-3"></i>
+                    <h3 class="display-6 mb-1" id="average-rating">5.0</h3>
+                    <p class="mb-0">Average Rating</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card stat-card h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-clock display-6 mb-3"></i>
+                    <h3 class="display-6 mb-1" id="active-hours">0h</h3>
+                    <p class="mb-0">Today's Hours</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="row">
+        <div class="col-12">
+            <ul class="nav nav-tabs mb-4" id="driver-tabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="available-rides-tab" data-bs-toggle="tab" 
+                            data-bs-target="#available-rides" type="button" role="tab">
+                        <i class="fas fa-search me-2"></i>Available Rides
+                        <span class="badge bg-warning ms-2" id="available-count">0</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="my-rides-tab" data-bs-toggle="tab" 
+                            data-bs-target="#my-rides" type="button" role="tab">
+                        <i class="fas fa-car me-2"></i>My Rides
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="earnings-tab" data-bs-toggle="tab" 
+                            data-bs-target="#earnings" type="button" role="tab">
+                        <i class="fas fa-chart-line me-2"></i>Earnings
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="driver-tab-content">
+                <!-- Available Rides Tab -->
+                <div class="tab-pane fade show active" id="available-rides" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="fas fa-search me-2"></i>Available Rides
+                            </h5>
+                            <button class="btn btn-sm btn-primary" onclick="loadAvailableRides()">
+                                <i class="fas fa-sync-alt me-2"></i>Refresh
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div id="available-rides-loading" class="text-center py-4">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="mt-2 text-muted">Loading available rides...</p>
+                            </div>
+                            
+                            <div id="available-rides-container" class="d-none">
+                                <!-- Available rides will be loaded here -->
+                            </div>
+                            
+                            <div id="no-available-rides" class="text-center py-5 d-none">
+                                <i class="fas fa-search text-muted display-4 mb-3"></i>
+                                <h5 class="text-muted">No rides available</h5>
+                                <p class="text-muted">Check back later for new ride requests.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- My Rides Tab -->
+                <div class="tab-pane fade" id="my-rides" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-car me-2"></i>My Rides
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="my-rides-container">
+                                <!-- Driver's rides will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Earnings Tab -->
+                <div class="tab-pane fade" id="earnings" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-chart-line me-2"></i>Earnings Overview
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-4">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center">
+                                            <h6 class="text-muted">Today's Earnings</h6>
+                                            <h3 class="text-success" id="today-earnings">$0.00</h3>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-4">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center">
+                                            <h6 class="text-muted">This Week</h6>
+                                            <h3 class="text-primary" id="week-earnings">$0.00</h3>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <h6 class="mb-3">Recent Earnings</h6>
+                            <div id="earnings-list">
+                                <p class="text-muted text-center">No earnings data available yet.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Accept Ride Modal -->
+<div class="modal fade" id="accept-ride-modal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-check-circle me-2"></i>Accept Ride Request
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="ride-details">
+                <!-- Ride details will be populated here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" id="confirm-accept-btn">
+                    <i class="fas fa-check me-2"></i>Accept Ride
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentRideId = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Redirect if not authenticated or not a driver
+    if (!isAuthenticated()) {
+        showAlert('Please login to access driver dashboard', 'warning');
+        setTimeout(() => {
+            window.location.href = '/login/';
+        }, 2000);
+        return;
+    }
+
+    // Check if user is a driver
+    const userType = localStorage.getItem('user_type');
+    if (userType !== 'DRIVER') {
+        showAlert('Access denied. Driver account required.', 'danger');
+        setTimeout(() => {
+            window.location.href = '/dashboard/';
+        }, 2000);
+        return;
+    }
+
+    loadDriverDashboard();
+    
+    // Set up availability toggle
+    document.getElementById('availability-toggle').addEventListener('change', toggleAvailability);
+    
+    // Load available rides initially
+    loadAvailableRides();
+    
+    // Auto-refresh available rides every 30 seconds
+    setInterval(loadAvailableRides, 30000);
+});
+
+async function loadDriverDashboard() {
+    try {
+        // Load driver profile and statistics
+        await Promise.all([
+            loadDriverProfile(),
+            loadDriverRides(),
+            loadDriverEarnings()
+        ]);
+    } catch (error) {
+        console.error('Error loading driver dashboard:', error);
+        showAlert('Error loading dashboard data', 'danger');
+    }
+}
+
+async function loadDriverProfile() {
+    try {
+        const response = await makeAuthenticatedRequest('/driver-profile/');
+        if (response.ok) {
+            const profile = await response.json();
+            document.getElementById('availability-toggle').checked = profile.is_available;
+            updateAvailabilityText(profile.is_available);
+            document.getElementById('average-rating').textContent = profile.rating;
+        }
+    } catch (error) {
+        console.error('Error loading driver profile:', error);
+    }
+}
+
+async function loadDriverRides() {
+    try {
+        const response = await makeAuthenticatedRequest('/api/');
+        if (response.ok) {
+            const rides = await response.json();
+            const driverRides = rides.filter(ride => ride.driver && ride.driver.id === parseInt(localStorage.getItem('user_id')));
+            
+            updateDriverStatistics(driverRides);
+            displayDriverRides(driverRides);
+        }
+    } catch (error) {
+        console.error('Error loading driver rides:', error);
+    }
+}
+
+async function loadAvailableRides() {
+    try {
+        const response = await makeAuthenticatedRequest('/api/available/');
+        
+        if (response.ok) {
+            const rides = await response.json();
+            displayAvailableRides(rides);
+            document.getElementById('available-count').textContent = rides.length;
+        } else {
+            throw new Error('Failed to load available rides');
+        }
+    } catch (error) {
+        console.error('Error loading available rides:', error);
+        document.getElementById('available-rides-loading').classList.add('d-none');
+        document.getElementById('no-available-rides').classList.remove('d-none');
+    }
+}
+
+function displayAvailableRides(rides) {
+    const container = document.getElementById('available-rides-container');
+    const loading = document.getElementById('available-rides-loading');
+    const noRides = document.getElementById('no-available-rides');
+    
+    loading.classList.add('d-none');
+    
+    if (rides.length === 0) {
+        container.classList.add('d-none');
+        noRides.classList.remove('d-none');
+        return;
+    }
+    
+    container.classList.remove('d-none');
+    noRides.classList.add('d-none');
+    
+    const ridesHTML = rides.map(ride => `
+        <div class="card ride-card mb-3">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-start">
+                            <div class="me-3">
+                                <i class="fas fa-map-marker-alt text-success fs-5"></i>
+                                <div class="border-start border-2 ms-2" style="height: 20px;"></div>
+                                <i class="fas fa-flag text-danger fs-5"></i>
+                            </div>
+                            <div>
+                                <p class="mb-1 fw-semibold">${ride.pickup_location}</p>
+                                <p class="mb-0 text-muted">${ride.dropoff_location}</p>
+                            </div>
+                        </div>
+                        ${ride.notes ? `<small class="text-muted"><i class="fas fa-comment me-1"></i>${ride.notes}</small>` : ''}
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <small class="text-muted">Requested</small>
+                        <p class="mb-0 fw-semibold">${formatDate(ride.created_at)}</p>
+                    </div>
+                    <div class="col-md-3 text-end">
+                        <button class="btn btn-success" onclick="showAcceptRideModal(${ride.id})">
+                            <i class="fas fa-check me-2"></i>Accept Ride
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+    
+    container.innerHTML = ridesHTML;
+}
+
+function displayDriverRides(rides) {
+    const container = document.getElementById('my-rides-container');
+    
+    if (rides.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-5">
+                <i class="fas fa-car text-muted display-4 mb-3"></i>
+                <h5 class="text-muted">No rides completed yet</h5>
+                <p class="text-muted">Accept ride requests to start earning!</p>
+            </div>
+        `;
+        return;
+    }
+    
+    const ridesHTML = rides.map(ride => `
+        <div class="card ride-card mb-3">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-start">
+                            <div class="me-3">
+                                <i class="fas fa-map-marker-alt text-success fs-5"></i>
+                                <div class="border-start border-2 ms-2" style="height: 20px;"></div>
+                                <i class="fas fa-flag text-danger fs-5"></i>
+                            </div>
+                            <div>
+                                <p class="mb-1 fw-semibold">${ride.pickup_location}</p>
+                                <p class="mb-0 text-muted">${ride.dropoff_location}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-2 text-center">
+                        ${formatRideStatus(ride.status)}
+                    </div>
+                    <div class="col-md-2 text-center">
+                        <small class="text-muted">Fare</small>
+                        <p class="mb-0 fw-semibold">${formatCurrency(ride.fare)}</p>
+                    </div>
+                    <div class="col-md-2 text-end">
+                        ${ride.status === 'accepted' ? `
+                            <button class="btn btn-primary btn-sm" onclick="updateRideStatus(${ride.id}, 'in_progress')">
+                                Start Trip
+                            </button>
+                        ` : ride.status === 'in_progress' ? `
+                            <button class="btn btn-success btn-sm" onclick="updateRideStatus(${ride.id}, 'completed')">
+                                Complete
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+    
+    container.innerHTML = ridesHTML;
+}
+
+function updateDriverStatistics(rides) {
+    const completedRides = rides.filter(r => r.status === 'completed');
+    const totalEarnings = completedRides.reduce((sum, r) => sum + (parseFloat(r.fare) || 0), 0);
+    
+    document.getElementById('total-trips').textContent = completedRides.length;
+    document.getElementById('total-earnings').textContent = formatCurrency(totalEarnings);
+}
+
+async function loadDriverEarnings() {
+    // This would typically load from a dedicated earnings endpoint
+    // For now, we'll use the rides data
+    const today = new Date().toDateString();
+    // Mock data for demonstration
+    document.getElementById('today-earnings').textContent = '$0.00';
+    document.getElementById('week-earnings').textContent = '$0.00';
+}
+
+async function toggleAvailability() {
+    const isAvailable = document.getElementById('availability-toggle').checked;
+    
+    try {
+        const response = await makeAuthenticatedRequest('/driver-profile/', {
+            method: 'PUT',
+            body: JSON.stringify({ is_available: isAvailable })
+        });
+        
+        if (response.ok) {
+            updateAvailabilityText(isAvailable);
+            showAlert(`You are now ${isAvailable ? 'online' : 'offline'}`, 'success', 3000);
+        } else {
+            throw new Error('Failed to update availability');
+        }
+    } catch (error) {
+        console.error('Error updating availability:', error);
+        showAlert('Error updating availability', 'danger');
+        // Revert toggle
+        document.getElementById('availability-toggle').checked = !isAvailable;
+    }
+}
+
+function updateAvailabilityText(isAvailable) {
+    const text = document.getElementById('availability-text');
+    text.textContent = isAvailable ? 'Online' : 'Offline';
+    text.className = isAvailable ? 'text-success' : 'text-muted';
+}
+
+async function showAcceptRideModal(rideId) {
+    currentRideId = rideId;
+    
+    try {
+        // Get ride details (for now we'll use the data we already have)
+        const response = await makeAuthenticatedRequest('/api/available/');
+        const rides = await response.json();
+        const ride = rides.find(r => r.id === rideId);
+        
+        if (ride) {
+            const modalBody = document.getElementById('ride-details');
+            modalBody.innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-map-marker-alt text-success me-2"></i>Pickup</h6>
+                        <p>${ride.pickup_location}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-flag text-danger me-2"></i>Dropoff</h6>
+                        <p>${ride.dropoff_location}</p>
+                    </div>
+                </div>
+                ${ride.notes ? `
+                    <div class="mt-3">
+                        <h6><i class="fas fa-comment me-2"></i>Notes</h6>
+                        <p class="text-muted">${ride.notes}</p>
+                    </div>
+                ` : ''}
+                <div class="mt-3">
+                    <h6><i class="fas fa-user me-2"></i>Rider</h6>
+                    <p>${ride.rider.email}</p>
+                </div>
+            `;
+            
+            const modal = new bootstrap.Modal(document.getElementById('accept-ride-modal'));
+            modal.show();
+        }
+    } catch (error) {
+        console.error('Error loading ride details:', error);
+        showAlert('Error loading ride details', 'danger');
+    }
+}
+
+document.getElementById('confirm-accept-btn').addEventListener('click', async function() {
+    if (!currentRideId) return;
+    
+    try {
+        const response = await makeAuthenticatedRequest(`/api/${currentRideId}/accept/`, {
+            method: 'PUT'
+        });
+        
+        if (response.ok) {
+            showAlert('Ride accepted successfully!', 'success');
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('accept-ride-modal'));
+            modal.hide();
+            
+            // Refresh data
+            loadAvailableRides();
+            loadDriverRides();
+            
+            currentRideId = null;
+        } else {
+            throw new Error('Failed to accept ride');
+        }
+    } catch (error) {
+        console.error('Error accepting ride:', error);
+        showAlert('Error accepting ride', 'danger');
+    }
+});
+
+async function updateRideStatus(rideId, status) {
+    try {
+        const response = await makeAuthenticatedRequest(`/api/${rideId}/status/`, {
+            method: 'PUT',
+            body: JSON.stringify({ status: status })
+        });
+        
+        if (response.ok) {
+            const statusText = status === 'in_progress' ? 'started' : 'completed';
+            showAlert(`Ride ${statusText} successfully!`, 'success');
+            loadDriverRides();
+        } else {
+            throw new Error(`Failed to ${status} ride`);
+        }
+    } catch (error) {
+        console.error('Error updating ride status:', error);
+        showAlert('Error updating ride status', 'danger');
+    }
+}
+
+function refreshDriverDashboard() {
+    showAlert('Refreshing dashboard...', 'info', 2000);
+    loadDriverDashboard();
+    loadAvailableRides();
+}
+</script>
+{% endblock %}
