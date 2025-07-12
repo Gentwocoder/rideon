@@ -9,33 +9,39 @@ A modern, full-stack ride sharing platform built with Django REST Framework and 
 - **User Types**: Support for Riders, Drivers, and Admins
 - **Email Verification**: Mandatory email verification for account activation
 - **Profile Management**: Comprehensive user and driver profile management
+- **Driver Profiles**: Vehicle information, license management, and availability status
 
 ### Ride Management
 - **Ride Requests**: Riders can request rides with pickup/dropoff locations
+- **GPS Integration**: Location-based services with coordinate validation
 - **Driver Matching**: Drivers can view and accept available ride requests
 - **Real-time Status**: Track ride status from pending to completion
-- **Fare Calculation**: Basic fare estimation based on distance
+- **Fare Calculation**: Distance-based fare estimation with transparent pricing
+- **Ride History**: Complete ride tracking and history management
 
 ### Frontend Features
-- **Responsive Design**: Bootstrap-based responsive UI
+- **Responsive Design**: Bootstrap-based responsive UI with modern aesthetics
 - **Interactive Dashboard**: Separate dashboards for riders and drivers
 - **Real-time Updates**: Auto-refreshing data and notifications
 - **Progressive Web App**: Service worker for offline capabilities
+- **Form Validation**: Comprehensive client-side and server-side validation
+- **Error Handling**: User-friendly error messages and debugging support
 
 ## Tech Stack
 
 ### Backend
-- **Django 5.2.4**: Python web framework
-- **Django REST Framework**: API development
-- **SimpleJWT**: JWT authentication
-- **drf-spectacular**: API documentation (Swagger)
-- **SQLite**: Database (development)
+- **Django 4.2.14**: Python web framework
+- **Django REST Framework**: API development with comprehensive serialization
+- **SimpleJWT**: JWT authentication with refresh token support
+- **SQLite**: Database (development) with migration support
+- **Custom User Model**: Email-based authentication system
 
 ### Frontend
 - **HTML5/CSS3/JavaScript**: Core web technologies
-- **Bootstrap 5.3**: UI framework
-- **Font Awesome**: Icons
+- **Bootstrap 5.3**: UI framework with responsive design
+- **Font Awesome**: Icons and visual elements
 - **Vanilla JavaScript**: No heavy frameworks, lightweight and fast
+- **Service Worker**: PWA capabilities for offline functionality
 
 ## Quick Start
 
@@ -48,12 +54,12 @@ A modern, full-stack ride sharing platform built with Django REST Framework and 
 
 1. **Clone and setup the project**:
 ```bash
-cd "/home/gentle/Documents/Ride Sharing Project/rideshare/backend"
+cd "/home/gentle/Documents/Ride Sharing Project/rideshare"
 ```
 
 2. **Install dependencies**:
 ```bash
-pip install -r requirements.txt
+pip install django djangorestframework djangorestframework-simplejwt
 ```
 
 3. **Run migrations**:
@@ -73,8 +79,8 @@ python manage.py runserver
 
 6. **Access the application**:
    - Frontend: http://127.0.0.1:8000/
-   - API Documentation: http://127.0.0.1:8000/api/schema/docs/
    - Admin Panel: http://127.0.0.1:8000/admin/
+   - API Endpoints: http://127.0.0.1:8000/api/
 
 ## Usage Guide
 
@@ -95,49 +101,52 @@ python manage.py runserver
 ## API Endpoints
 
 ### Authentication
-- `POST /auth/register/` - User registration
-- `POST /auth/login/` - User login
-- `POST /auth/logout/` - User logout
-- `POST /api/token/refresh/` - Refresh JWT token
+- `POST /auth/register/` - User registration with email verification
+- `POST /auth/login/` - User login with JWT token generation
+- `POST /auth/logout/` - User logout and token invalidation
+- `POST /api/token/refresh/` - Refresh JWT access token
+- `GET /api/verify-email/<token>/` - Email verification endpoint
 
 ### User Management
 - `GET/PUT /profile/` - User profile management
-- `GET/PUT/POST/DELETE /driver-profile/` - Driver profile management
+- `GET/PUT /driver-profile/` - Driver profile management with vehicle details
 
 ### Ride Management
-- `GET/POST /api/` - List/create rides
-- `GET /api/available/` - Available rides for drivers
-- `PUT /api/{id}/accept/` - Accept a ride request
-- `PUT /api/{id}/status/` - Update ride status
+- `GET/POST /api/` - List user rides/create new ride requests
+- `GET /api/available/` - Available rides for drivers to accept
+- `PUT /api/{id}/accept/` - Accept a ride request (drivers only)
+- `PUT /api/{id}/status/` - Update ride status (in_progress, completed, cancelled)
 
 ## Project Structure
 
 ```
-backend/
+rideshare/
 ├── core/                   # User management app
-│   ├── models.py          # User and driver profile models
-│   ├── views.py           # Authentication views
-│   ├── serializers.py     # API serializers
+│   ├── models.py          # CustomUser and DriverProfile models
+│   ├── views.py           # Authentication and profile views
+│   ├── serializers.py     # User and profile serializers
+│   ├── admin.py           # Django admin configuration
 │   └── migrations/        # Database migrations
 ├── rideon/                # Ride management app
-│   ├── models.py          # Ride and request models
-│   ├── views.py           # Ride API views
+│   ├── models.py          # Ride and RideRequest models
+│   ├── views.py           # Ride API views and logic
 │   ├── serializers.py     # Ride serializers
-│   └── urls.py            # Ride URL patterns
+│   ├── urls.py            # Ride URL patterns
+│   └── migrations/        # Database migrations
 ├── rideshare/             # Main project settings
-│   ├── settings.py        # Django settings
+│   ├── settings.py        # Django configuration
 │   ├── urls.py            # Main URL configuration
-│   └── wsgi.py            # WSGI configuration
+│   ├── wsgi.py            # WSGI configuration
+│   └── asgi.py            # ASGI configuration
 ├── templates/             # Frontend templates
-│   ├── base.html          # Base template
+│   ├── base.html          # Base template with navigation
 │   ├── home.html          # Landing page
 │   ├── login.html         # Login page
 │   ├── register.html      # Registration page
 │   ├── dashboard.html     # Rider dashboard
 │   ├── driver_dashboard.html # Driver dashboard
-│   ├── email_verification.html # Email Verification page
-│   ├── request_ride.html  # Ride request form
-│   └── profile.html       # User profile page
+│   ├── email_verification.html # Email verification page
+│   └── request_ride.html  # Ride request form
 ├── static/                # Static assets
 │   ├── css/
 │   │   └── main.css       # Main stylesheet
@@ -145,26 +154,79 @@ backend/
 │       ├── auth.js        # Authentication utilities
 │       ├── main.js        # Main JavaScript functions
 │       └── sw.js          # Service worker
+├── db.sqlite3             # SQLite database
 ├── manage.py              # Django management script
-└── requirements.txt       # Python dependencies
+└── schema.yml             # API schema documentation
 ```
 
 ## Development Notes
+
+### Recent Updates
+- **✅ Ride Request Functionality**: Fixed coordinate precision issues and validation
+- **✅ Email Verification**: Complete email verification system with HTML templates
+- **✅ User Type Management**: Proper dashboard redirection for riders vs drivers
+- **✅ Driver Profile Management**: Full CRUD operations for driver profiles
+- **✅ Error Handling**: Comprehensive error handling and user feedback
 
 ### Current Limitations
 1. **No real-time features**: WebSocket support not implemented
 2. **Basic fare calculation**: Simple distance-based pricing
 3. **No payment integration**: Payment system not implemented
-4. **Mock location services**: GPS integration not implemented
+4. **Mock location services**: GPS integration partially implemented
 5. **SQLite database**: Production needs PostgreSQL/MySQL
 
 ### Future Enhancements
-1. **Real-time notifications**: WebSocket integration
-2. **Map integration**: Google Maps or Mapbox
+1. **Real-time notifications**: WebSocket integration for live updates
+2. **Map integration**: Google Maps or Mapbox for visual ride tracking
 3. **Payment processing**: Stripe or PayPal integration
 4. **Advanced matching**: Algorithm-based driver-rider matching
 5. **Rating system**: Comprehensive rating and review system
 6. **Chat system**: In-app communication between riders and drivers
+7. **Push notifications**: Mobile app notifications for ride updates
+
+## Troubleshooting
+
+### Common Issues
+
+#### Ride Request Errors
+- **"Ensure that there are no more than 6 decimal places"**: GPS coordinates automatically formatted to 6 decimal places
+- **"Failed to request ride"**: Ensure user is logged in and has valid authentication token
+- **Missing coordinates**: Use default coordinates or GPS location button for accurate positioning
+
+#### Authentication Issues
+- **Invalid credentials**: Verify email and password, ensure email is verified
+- **Token expired**: Logout and login again to refresh authentication token
+- **Email verification**: Check spam folder and ensure verification link hasn't expired
+
+#### Database Issues
+- **Migration errors**: Run `python manage.py migrate` to update database schema
+- **Missing tables**: Ensure all migrations are applied before starting server
+
+### Testing
+
+#### API Testing
+```bash
+# Test ride creation
+curl -X POST http://127.0.0.1:8000/api/ \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -d '{
+    "pickup_location": "Test Location",
+    "pickup_latitude": 40.712800,
+    "pickup_longitude": -74.006000,
+    "dropoff_location": "Test Destination",
+    "dropoff_latitude": 40.758900,
+    "dropoff_longitude": -73.985100,
+    "notes": "Test ride"
+  }'
+```
+
+#### Frontend Testing
+1. Register a new user account
+2. Verify email address
+3. Login and access dashboard
+4. Create a ride request
+5. Test driver functionality with separate account
 
 ## Contributing
 
@@ -183,3 +245,10 @@ This project is for educational purposes. Please ensure compliance with local re
 For issues and questions, please check the Django and DRF documentation:
 - [Django Documentation](https://docs.djangoproject.com/)
 - [Django REST Framework](https://www.django-rest-framework.org/)
+
+### Project Status
+- **Version**: 1.0.0
+- **Status**: Active Development
+- **Last Updated**: July 12, 2025
+- **Core Features**: ✅ Complete
+- **Testing**: ✅ Basic functionality verified
