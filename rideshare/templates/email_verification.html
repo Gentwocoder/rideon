@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Email Verification - Rideon{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-body text-center p-5">
+                    <div id="verification-loading" class="d-none">
+                        <div class="spinner-border text-primary mb-3" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <h4>Verifying your email...</h4>
+                        <p class="text-muted">Please wait while we verify your email address.</p>
+                    </div>
+                    
+                    <div id="verification-success" class="d-none">
+                        <i class="fas fa-check-circle text-success display-1 mb-4"></i>
+                        <h2 class="text-success mb-3">Email Verified Successfully!</h2>
+                        <p class="lead mb-4">Your email address has been verified. You can now log in to your Rideon account.</p>
+                        <a href="/login/" class="btn btn-primary btn-lg">
+                            <i class="fas fa-sign-in-alt me-2"></i>Go to Login
+                        </a>
+                    </div>
+                    
+                    <div id="verification-error" class="d-none">
+                        <i class="fas fa-exclamation-triangle text-warning display-1 mb-4"></i>
+                        <h2 class="text-warning mb-3">Verification Failed</h2>
+                        <p class="lead mb-4" id="error-message">The verification link is invalid or has expired.</p>
+                        <div class="d-grid gap-2">
+                            <a href="/register/" class="btn btn-outline-primary">
+                                <i class="fas fa-user-plus me-2"></i>Register Again
+                            </a>
+                            <a href="/login/" class="btn btn-primary">
+                                <i class="fas fa-sign-in-alt me-2"></i>Try Login
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div id="verification-info" class="d-none">
+                        <i class="fas fa-info-circle text-info display-1 mb-4"></i>
+                        <h2 class="text-info mb-3">Already Verified</h2>
+                        <p class="lead mb-4">Your email address is already verified. You can log in to your account.</p>
+                        <a href="/login/" class="btn btn-primary btn-lg">
+                            <i class="fas fa-sign-in-alt me-2"></i>Go to Login
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Get the token from URL
+    const pathParts = window.location.pathname.split('/');
+    const token = pathParts[pathParts.length - 2]; // Get token from URL
+    
+    if (!token) {
+        showVerificationError('Invalid verification link');
+        return;
+    }
+    
+    // Show loading state
+    document.getElementById('verification-loading').classList.remove('d-none');
+    
+    // Verify the email
+    verifyEmail(token);
+});
+
+async function verifyEmail(token) {
+    try {
+        const response = await fetch(`/api/verify-email/${token}/`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        
+        // Hide loading
+        document.getElementById('verification-loading').classList.add('d-none');
+        
+        if (response.ok) {
+            if (result.status === 'success') {
+                showVerificationSuccess();
+            } else if (result.status === 'info') {
+                showVerificationInfo(result.message);
+            }
+        } else {
+            showVerificationError(result.message || 'Verification failed');
+        }
+    } catch (error) {
+        console.error('Verification error:', error);
+        document.getElementById('verification-loading').classList.add('d-none');
+        showVerificationError('An error occurred during verification');
+    }
+}
+
+function showVerificationSuccess() {
+    document.getElementById('verification-success').classList.remove('d-none');
+    showAlert('Email verified successfully! You can now log in.', 'success');
+}
+
+function showVerificationError(message) {
+    document.getElementById('error-message').textContent = message;
+    document.getElementById('verification-error').classList.remove('d-none');
+    showAlert(message, 'danger');
+}
+
+function showVerificationInfo(message) {
+    document.getElementById('verification-info').classList.remove('d-none');
+    showAlert(message, 'info');
+}
+</script>
+{% endblock %}

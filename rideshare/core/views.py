@@ -1,6 +1,8 @@
 from django.shortcuts import render
 from django.contrib.auth import authenticate
 from django.shortcuts import get_object_or_404
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 from rest_framework import generics, permissions, status
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -12,10 +14,37 @@ from .serializers import CustomTokenSerializer, UserSerializer, RegisterSerializ
 from .models import CustomUser
 
 # Create your views here.
+@method_decorator(csrf_exempt, name='dispatch')
 class RegisterView(generics.CreateAPIView):
     queryset = CustomUser.objects.all()
     permission_classes = [permissions.AllowAny]
     serializer_class = RegisterSerializer
+    
+    def create(self, request, *args, **kwargs):
+        print("Registration request data:", request.data)  # Debug logging
+        serializer = self.get_serializer(data=request.data)
+        
+        try:
+            serializer.is_valid(raise_exception=True)
+            user = serializer.save()
+            
+            return Response({
+                'message': 'Registration successful! Please check your email to verify your account.',
+                'user': {
+                    'email': user.email,
+                    'user_type': user.user_type,
+                    'is_email_verified': user.is_email_verified
+                },
+                'status': 'success'
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            print("Registration error:", str(e))  # Debug logging
+            print("Serializer errors:", serializer.errors if hasattr(serializer, 'errors') else 'No serializer errors')
+            return Response({
+                'message': 'Registration failed',
+                'errors': serializer.errors if hasattr(serializer, 'errors') else {'detail': str(e)},
+                'status': 'error'
+            }, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CustomTokenView(TokenObtainPairView):
@@ -95,12 +124,32 @@ class LoginView(TokenObtainPairView):
     
 
 class VerifyEmailView(APIView):
+    permission_classes = [permissions.AllowAny]
+    
     def get(self, request, token):
-        user = get_object_or_404(CustomUser, email_verification_token=token)
-        user.is_email_verified = True
-        user.email_verification_token = None
-        user.save()
-        return Response({"message": "Email verified successfully"}, status=status.HTTP_200_OK)
+        try:
+            user = get_object_or_404(CustomUser, email_verification_token=token)
+            
+            if user.is_email_verified:
+                return Response({
+                    "message": "Email is already verified",
+                    "status": "info"
+                }, status=status.HTTP_200_OK)
+            
+            user.is_email_verified = True
+            user.email_verification_token = None  # Clear the token after verification
+            user.save()
+            
+            return Response({
+                "message": "Email verified successfully! You can now log in to your account.",
+                "status": "success"
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({
+                "message": "Invalid or expired verification token",
+                "status": "error"
+            }, status=status.HTTP_400_BAD_REQUEST)
     
 class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]

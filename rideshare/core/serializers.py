@@ -13,29 +13,153 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = ['id', 'email', 'user_type', 'phone_number', 'is_email_verified', 'is_phone_verified', 'is_active', 'is_staff']
-        read_only_fields = ['id', 'username', 'is_verified']
+        read_only_fields = ['id', 'email', 'is_verified']
         extra_kwargs = {'password': {'write_only': True}}
 
 class RegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, min_length=6)
+    confirm_password = serializers.CharField(write_only=True, min_length=6)
     
-    password = serializers.CharField(write_only=True)
+    # Driver-specific fields (optional)
+    license_number = serializers.CharField(required=False, allow_blank=True)
+    vehicle_make = serializers.CharField(required=False, allow_blank=True)
+    vehicle_model = serializers.CharField(required=False, allow_blank=True)
+    vehicle_year = serializers.IntegerField(required=False, allow_null=True)
+    vehicle_color = serializers.CharField(required=False, allow_blank=True)
+    vehicle_plate = serializers.CharField(required=False, allow_blank=True)
+    
     class Meta:
         model = CustomUser
-        fields = ['id', 'email', 'phone_number', 'password']
+        fields = ['email', 'phone_number', 'user_type', 'password', 'confirm_password',
+                 'license_number', 'vehicle_make', 'vehicle_model', 'vehicle_year', 
+                 'vehicle_color', 'vehicle_plate']
 
-        def create(self, validated_data):
-            user = CustomUser.objects.create_user(**validated_data)
-            verification_url = f"http://127.0.0.1/api/verify-email/{user.email_verification_token}"
-            send_mail(
-                subject="Email Verification",
-                message=f"Please click the link to verify your email: {verification_url}",
-                from_email="adetoyese0511@gmail.com",
-                recipient_list=[user.email],
-            )
-            user.set_password(validated_data['password'])
-            user.save()
+    def validate(self, attrs):
+        if attrs['password'] != attrs['confirm_password']:
+            raise serializers.ValidationError("Passwords don't match")
+        
+        # If user_type is DRIVER, validate that driver fields are provided
+        if attrs.get('user_type') == 'DRIVER':
+            driver_fields = ['license_number', 'vehicle_make', 'vehicle_model', 'vehicle_year', 'vehicle_color', 'vehicle_plate']
+            missing_fields = []
             
-            return user
+            for field in driver_fields:
+                if not attrs.get(field):
+                    missing_fields.append(field)
+            
+            if missing_fields:
+                raise serializers.ValidationError(f"Driver registration requires: {', '.join(missing_fields)}")
+        
+        return attrs
+
+    def create(self, validated_data):
+        # Extract driver-specific data
+        driver_data = {}
+        driver_fields = ['license_number', 'vehicle_make', 'vehicle_model', 'vehicle_year', 'vehicle_color', 'vehicle_plate']
+        
+        for field in driver_fields:
+            if field in validated_data:
+                driver_data[field] = validated_data.pop(field)
+        
+        # Remove confirm_password from validated_data
+        validated_data.pop('confirm_password', None)
+        
+        # Create user
+        user = CustomUser.objects.create_user(**validated_data)
+        
+        # Create driver profile if user is a driver
+        if user.user_type == 'DRIVER' and driver_data:
+            from .models import DriverProfile
+            DriverProfile.objects.create(user=user, **driver_data)
+        
+        # Send verification email
+        self.send_verification_email(user)
+        
+        return user
+    
+    def send_verification_email(self, user):
+        from django.core.mail import send_mail
+        from django.urls import reverse
+        from django.conf import settings
+        
+        # Create verification URL - Send users to the frontend verification page
+        verification_url = f"http://127.0.0.1:8000/verify-email/{user.email_verification_token}/"
+        
+        # Email content
+        subject = "Welcome to Rideon - Please Verify Your Email"
+        message = f"""
+Hello!
+
+Welcome to Rideon! We're excited to have you join our ride-sharing community.
+
+To complete your registration and start using Rideon, please verify your email address by clicking the link below:
+
+{verification_url}
+
+This link will expire in 24 hours for security purposes.
+
+If you didn't create an account with Rideon, please ignore this email.
+
+Best regards,
+The Rideon Team
+        """
+        
+        html_message = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <h1 style="color: #0d6efd;">🚗 Welcome to Rideon!</h1>
+                </div>
+                
+                <p>Hello!</p>
+                
+                <p>Welcome to Rideon! We're excited to have you join our ride-sharing community.</p>
+                
+                <p>To complete your registration and start using Rideon, please verify your email address by clicking the button below:</p>
+                
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="{verification_url}" style="background-color: #0d6efd; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                        Verify Email Address
+                    </a>
+                </div>
+                
+                <p>Or copy and paste this link into your browser:</p>
+                <p style="word-break: break-all; background-color: #f8f9fa; padding: 10px; border-radius: 3px;">
+                    {verification_url}
+                </p>
+                
+                <p style="color: #666; font-size: 14px;">
+                    <strong>Note:</strong> This link will expire in 24 hours for security purposes.
+                </p>
+                
+                <p style="color: #666; font-size: 14px;">
+                    If you didn't create an account with Rideon, please ignore this email.
+                </p>
+                
+                <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+                
+                <p style="text-align: center; color: #666; font-size: 14px;">
+                    Best regards,<br>
+                    The Rideon Team
+                </p>
+            </div>
+        </body>
+        </html>
+        """
+        
+        try:
+            send_mail(
+                subject=subject,
+                message=message,
+                html_message=html_message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+        except Exception as e:
+            print(f"Failed to send verification email: {e}")
+            # You could log this error or handle it differently in production
         
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()

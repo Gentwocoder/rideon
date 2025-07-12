@@ -25,7 +25,7 @@ urlpatterns = [
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("profile/", ProfileView.as_view(), name="profile_api"),
     path("driver-profile/", DriverProfileView.as_view(), name="driver_profile"),
-    path("auth/login/", LoginView.as_view(), name="login"),
+    path("auth/login/", LoginView.as_view(), name="login_api"),
     path("api/verify-email/<uuid:token>/", VerifyEmailView.as_view(), name="verify-email"),
     path("auth/logout/", LogoutView.as_view(), name="logout"),
     
@@ -37,6 +37,7 @@ urlpatterns = [
     path("driver-dashboard/", TemplateView.as_view(template_name="driver_dashboard.html"), name="driver_dashboard"),
     path("request-ride/", TemplateView.as_view(template_name="request_ride.html"), name="request_ride"),
     path("my-profile/", TemplateView.as_view(template_name="profile.html"), name="profile"),
+    path("verify-email/<uuid:token>/", TemplateView.as_view(template_name="email_verification.html"), name="email_verification"),
 ]
 
 if settings.DEBUG:

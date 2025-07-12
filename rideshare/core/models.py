@@ -61,5 +61,5 @@ class DriverProfile(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.user.username} - {self.vehicle_make} {self.vehicle_model}"
+        return f"{self.user.email} - {self.vehicle_make} {self.vehicle_model}"
     

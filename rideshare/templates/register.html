@@ -213,8 +213,21 @@ document.getElementById('registerForm').addEventListener('submit', async functio
         email: formData.get('email'),
         phone_number: formData.get('phone_number'),
         password: formData.get('password'),
+        confirm_password: formData.get('confirm_password'),
         user_type: userType
     };
+    
+    // Add driver-specific fields if user is registering as a driver
+    if (userType === 'DRIVER') {
+        data.license_number = formData.get('license_number') || '';
+        data.vehicle_make = formData.get('vehicle_make') || '';
+        data.vehicle_model = formData.get('vehicle_model') || '';
+        data.vehicle_year = formData.get('vehicle_year') ? parseInt(formData.get('vehicle_year')) : null;
+        data.vehicle_color = formData.get('vehicle_color') || '';
+        data.vehicle_plate = formData.get('vehicle_plate') || '';
+    }
+    
+    console.log('Sending registration data:', data);
     
     try {
         const response = await fetch('/auth/register/', {
@@ -228,20 +241,38 @@ document.getElementById('registerForm').addEventListener('submit', async functio
         
         const result = await response.json();
         
-        if (response.ok) {
-            showAlert('Account created successfully! Please check your email to verify your account.', 'success');
+        if (response.ok && result.status === 'success') {
+            let successMessage = result.message || 'Account created successfully! Please check your email to verify your account.';
             
-            // If driver, also create driver profile
-            if (userType === 'DRIVER' && result.id) {
-                await createDriverProfile(result.id, formData);
+            if (userType === 'DRIVER') {
+                successMessage += ' Your driver profile has been created.';
             }
+            
+            showAlert(successMessage, 'success');
             
             // Redirect to login after delay
             setTimeout(() => {
-                window.location.href = '/auth/login/';
-            }, 2000);
+                window.location.href = '/login/';
+            }, 3000);
         } else {
-            const errorMessage = result.message || Object.values(result).flat().join(', ') || 'Registration failed. Please try again.';
+            // Better error handling
+            console.error('Registration failed:', result);
+            let errorMessage = 'Registration failed. Please try again.';
+            
+            if (result.message) {
+                errorMessage = result.message;
+            } else if (result.errors) {
+                // Handle field-specific errors
+                const errors = Object.entries(result.errors).map(([field, messages]) => {
+                    return `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`;
+                }).join('; ');
+                errorMessage = errors;
+            } else if (typeof result === 'object') {
+                // Handle other error formats
+                const errors = Object.values(result).flat().join(', ');
+                if (errors) errorMessage = errors;
+            }
+            
             showAlert(errorMessage, 'danger');
         }
     } catch (error) {
@@ -254,31 +285,6 @@ document.getElementById('registerForm').addEventListener('submit', async functio
         registerBtn.disabled = false;
     }
 });
-
-async function createDriverProfile(userId, formData) {
-    const driverData = {
-        user: userId,
-        license_number: formData.get('license_number'),
-        vehicle_make: formData.get('vehicle_make'),
-        vehicle_model: formData.get('vehicle_model'),
-        vehicle_year: parseInt(formData.get('vehicle_year')),
-        vehicle_color: formData.get('vehicle_color'),
-        vehicle_plate: formData.get('vehicle_plate')
-    };
-    
-    try {
-        await fetch('/driver-profile/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify(driverData)
-        });
-    } catch (error) {
-        console.error('Driver profile creation error:', error);
-    }
-}
 
 function togglePassword(fieldId) {
     const passwordField = document.getElementById(fieldId);
