@@ -28,6 +28,16 @@ class Ride(models.Model):
     distance = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     duration = models.IntegerField(null=True, blank=True)  # in minutes
     
+    # Scheduling
+    scheduled_pickup_time = models.DateTimeField(null=True, blank=True, help_text="When the rider wants to be picked up")
+    is_scheduled = models.BooleanField(default=False, help_text="True if this is a scheduled ride, False for immediate")
+    
+    # Payment
+    payment_method = models.CharField(max_length=20, default='cash', choices=[
+        ('cash', 'Cash'),
+        ('card', 'Credit/Debit Card'),
+    ])
+    
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -49,3 +59,25 @@ class RideRequest(models.Model):
     
     def __str__(self):
         return f"Request for Ride {self.ride.id} by {self.driver.email}"
+
+
+class RideMessage(models.Model):
+    MESSAGE_TYPES = [
+        ('driver_arrival', 'Driver Arrival Notification'),
+        ('general', 'General Message'),
+        ('pickup_delay', 'Pickup Delay'),
+        ('route_change', 'Route Change'),
+    ]
+    
+    ride = models.ForeignKey(Ride, on_delete=models.CASCADE, related_name='messages')
+    sender = models.ForeignKey(User, on_delete=models.CASCADE)
+    message_type = models.CharField(max_length=20, choices=MESSAGE_TYPES, default='general')
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Message for Ride {self.ride.id} from {self.sender.email}"

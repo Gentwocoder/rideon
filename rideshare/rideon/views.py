@@ -38,8 +38,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db.models import Q
-from .models import Ride, RideRequest
-from .serializers import RideSerializer, RideCreateSerializer, RideRequestSerializer
+from .models import Ride, RideRequest, RideMessage
+from .serializers import RideSerializer, RideCreateSerializer, RideRequestSerializer, RideMessageSerializer
 # from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 
 @api_view(['GET', 'POST'])
@@ -108,3 +108,51 @@ def update_ride_status(request, ride_id):
     
     except Ride.DoesNotExist:
         return Response({'error': 'Ride not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def ride_messages(request, ride_id):
+    """Get messages for a ride or send a new message"""
+    try:
+        ride = Ride.objects.get(id=ride_id)
+        
+        # Check if user is involved in the ride
+        if ride.rider != request.user and ride.driver != request.user:
+            return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+        
+        if request.method == 'GET':
+            messages = RideMessage.objects.filter(ride=ride)
+            serializer = RideMessageSerializer(messages, many=True)
+            return Response(serializer.data)
+        
+        elif request.method == 'POST':
+            serializer = RideMessageSerializer(data=request.data)
+            if serializer.is_valid():
+                message = serializer.save(ride=ride, sender=request.user)
+                return Response(RideMessageSerializer(message).data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    except Ride.DoesNotExist:
+        return Response({'error': 'Ride not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def driver_arrival_notification(request, ride_id):
+    """Driver notifies rider of arrival"""
+    try:
+        ride = Ride.objects.get(id=ride_id, driver=request.user)
+        
+        # Create arrival notification message
+        message = RideMessage.objects.create(
+            ride=ride,
+            sender=request.user,
+            message_type='driver_arrival',
+            message=f"I've arrived at the pickup location: {ride.pickup_location}. Please come out when you're ready."
+        )
+        
+        return Response(RideMessageSerializer(message).data, status=status.HTTP_201_CREATED)
+    
+    except Ride.DoesNotExist:
+        return Response({'error': 'Ride not found or unauthorized'}, status=status.HTTP_404_NOT_FOUND)

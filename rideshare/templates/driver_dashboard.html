@@ -52,7 +52,7 @@
             <div class="card stat-card h-100">
                 <div class="card-body text-center">
                     <i class="fas fa-dollar-sign display-6 mb-3"></i>
-                    <h3 class="display-6 mb-1" id="total-earnings">$0</h3>
+                    <h3 class="display-6 mb-1" id="total-earnings">₦0</h3>
                     <p class="mb-0">Total Earnings</p>
                 </div>
             </div>
@@ -165,7 +165,7 @@
                                     <div class="card bg-light">
                                         <div class="card-body text-center">
                                             <h6 class="text-muted">Today's Earnings</h6>
-                                            <h3 class="text-success" id="today-earnings">$0.00</h3>
+                                            <h3 class="text-success" id="today-earnings">₦0.00</h3>
                                         </div>
                                     </div>
                                 </div>
@@ -173,7 +173,7 @@
                                     <div class="card bg-light">
                                         <div class="card-body text-center">
                                             <h6 class="text-muted">This Week</h6>
-                                            <h3 class="text-primary" id="week-earnings">$0.00</h3>
+                                            <h3 class="text-primary" id="week-earnings">₦0.00</h3>
                                         </div>
                                     </div>
                                 </div>
@@ -399,16 +399,33 @@ function displayDriverRides(rides) {
                     </div>
                     <div class="col-md-2 text-center">
                         <small class="text-muted">Fare</small>
-                        <p class="mb-0 fw-semibold">${formatCurrency(ride.fare)}</p>
+                        <p class="mb-0 fw-semibold">₦${(ride.fare || 0).toFixed(2)}</p>
                     </div>
                     <div class="col-md-2 text-end">
                         ${ride.status === 'accepted' ? `
-                            <button class="btn btn-primary btn-sm" onclick="updateRideStatus(${ride.id}, 'in_progress')">
-                                Start Trip
-                            </button>
+                            <div class="btn-group-vertical gap-1">
+                                <button class="btn btn-primary btn-sm" onclick="updateRideStatus(${ride.id}, 'in_progress')">
+                                    <i class="fas fa-play me-1"></i>Start Trip
+                                </button>
+                                <button class="btn btn-outline-info btn-sm" onclick="sendArrivalNotification(${ride.id})">
+                                    <i class="fas fa-bell me-1"></i>I'm Here
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="showRideMessages(${ride.id})">
+                                    <i class="fas fa-comment me-1"></i>Contact
+                                </button>
+                            </div>
                         ` : ride.status === 'in_progress' ? `
-                            <button class="btn btn-success btn-sm" onclick="updateRideStatus(${ride.id}, 'completed')">
-                                Complete
+                            <div class="btn-group-vertical gap-1">
+                                <button class="btn btn-success btn-sm" onclick="updateRideStatus(${ride.id}, 'completed')">
+                                    <i class="fas fa-check me-1"></i>Complete
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="showRideMessages(${ride.id})">
+                                    <i class="fas fa-comment me-1"></i>Contact
+                                </button>
+                            </div>
+                        ` : ride.status === 'completed' ? `
+                            <button class="btn btn-outline-secondary btn-sm" onclick="showRideMessages(${ride.id})">
+                                <i class="fas fa-comment me-1"></i>Messages
                             </button>
                         ` : ''}
                     </div>
@@ -425,7 +442,7 @@ function updateDriverStatistics(rides) {
     const totalEarnings = completedRides.reduce((sum, r) => sum + (parseFloat(r.fare) || 0), 0);
     
     document.getElementById('total-trips').textContent = completedRides.length;
-    document.getElementById('total-earnings').textContent = formatCurrency(totalEarnings);
+    document.getElementById('total-earnings').textContent = `₦${totalEarnings.toFixed(2)}`;
 }
 
 async function loadDriverEarnings() {
@@ -433,8 +450,8 @@ async function loadDriverEarnings() {
     // For now, we'll use the rides data
     const today = new Date().toDateString();
     // Mock data for demonstration
-    document.getElementById('today-earnings').textContent = '$0.00';
-    document.getElementById('week-earnings').textContent = '$0.00';
+    document.getElementById('today-earnings').textContent = '₦0.00';
+    document.getElementById('week-earnings').textContent = '₦0.00';
 }
 
 async function toggleAvailability() {
@@ -562,6 +579,176 @@ function refreshDriverDashboard() {
     showAlert('Refreshing dashboard...', 'info', 2000);
     loadDriverDashboard();
     loadAvailableRides();
+}
+
+// Driver-Rider Communication Functions
+async function sendArrivalNotification(rideId) {
+    try {
+        const response = await makeAuthenticatedRequest(`/api/${rideId}/arrival/`, {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            showAlert('Arrival notification sent to rider!', 'success');
+        } else {
+            throw new Error('Failed to send arrival notification');
+        }
+    } catch (error) {
+        console.error('Error sending arrival notification:', error);
+        showAlert('Error sending notification', 'danger');
+    }
+}
+
+function showRideMessages(rideId) {
+    // Create and show messages modal
+    const modalHtml = `
+        <div class="modal fade" id="messages-modal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-comment me-2"></i>Ride Messages
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="messages-container" style="max-height: 300px; overflow-y: auto;" class="mb-3">
+                            <div class="text-center py-3">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading messages...</span>
+                                </div>
+                            </div>
+                        </div>
+                        <form id="send-message-form">
+                            <div class="input-group">
+                                <select class="form-select" id="message-type" style="max-width: 150px;">
+                                    <option value="general">General</option>
+                                    <option value="pickup_delay">Pickup Delay</option>
+                                    <option value="route_change">Route Change</option>
+                                </select>
+                                <input type="text" class="form-control" id="message-input" placeholder="Type your message..." required>
+                                <button class="btn btn-primary" type="submit">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if any
+    const existingModal = document.getElementById('messages-modal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Add modal to page
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('messages-modal'));
+    modal.show();
+    
+    // Load messages
+    loadRideMessages(rideId);
+    
+    // Set up message sending
+    document.getElementById('send-message-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await sendRideMessage(rideId);
+    });
+}
+
+async function loadRideMessages(rideId) {
+    try {
+        const response = await makeAuthenticatedRequest(`/api/${rideId}/messages/`);
+        
+        if (response.ok) {
+            const messages = await response.json();
+            displayMessages(messages);
+        } else {
+            throw new Error('Failed to load messages');
+        }
+    } catch (error) {
+        console.error('Error loading messages:', error);
+        document.getElementById('messages-container').innerHTML = `
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Unable to load messages
+            </div>
+        `;
+    }
+}
+
+function displayMessages(messages) {
+    const container = document.getElementById('messages-container');
+    
+    if (messages.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-3 text-muted">
+                <i class="fas fa-comment-slash mb-2"></i>
+                <p>No messages yet</p>
+            </div>
+        `;
+        return;
+    }
+    
+    const messagesHtml = messages.map(message => {
+        const isDriver = message.sender.user_type === 'driver';
+        const messageClass = isDriver ? 'bg-primary text-white ms-auto' : 'bg-light';
+        const alignment = isDriver ? 'justify-content-end' : 'justify-content-start';
+        
+        return `
+            <div class="d-flex ${alignment} mb-2">
+                <div class="card ${messageClass}" style="max-width: 70%;">
+                    <div class="card-body p-2">
+                        <div class="d-flex align-items-center mb-1">
+                            <small class="fw-semibold">${isDriver ? 'Driver' : 'Rider'}</small>
+                            ${message.message_type !== 'general' ? `
+                                <span class="badge badge-sm bg-info ms-2">${message.message_type.replace('_', ' ')}</span>
+                            ` : ''}
+                        </div>
+                        <p class="mb-1">${message.message}</p>
+                        <small class="opacity-75">${formatDate(message.created_at)}</small>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    container.innerHTML = messagesHtml;
+    container.scrollTop = container.scrollHeight;
+}
+
+async function sendRideMessage(rideId) {
+    const messageInput = document.getElementById('message-input');
+    const messageType = document.getElementById('message-type');
+    const message = messageInput.value.trim();
+    
+    if (!message) return;
+    
+    try {
+        const response = await makeAuthenticatedRequest(`/api/${rideId}/messages/`, {
+            method: 'POST',
+            body: JSON.stringify({
+                message: message,
+                message_type: messageType.value
+            })
+        });
+        
+        if (response.ok) {
+            messageInput.value = '';
+            messageType.value = 'general';
+            loadRideMessages(rideId); // Refresh messages
+        } else {
+            throw new Error('Failed to send message');
+        }
+    } catch (error) {
+        console.error('Error sending message:', error);
+        showAlert('Error sending message', 'danger');
+    }
 }
 </script>
 {% endblock %}

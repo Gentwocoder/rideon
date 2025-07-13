@@ -67,7 +67,7 @@
             <div class="card stat-card h-100">
                 <div class="card-body text-center">
                     <i class="fas fa-dollar-sign display-6 mb-3"></i>
-                    <h3 class="display-6 mb-1" id="total-spent">$0</h3>
+                    <h3 class="display-6 mb-1" id="total-spent">₦0</h3>
                     <p class="mb-0">Total Spent</p>
                 </div>
             </div>
@@ -223,6 +223,11 @@ function displayRides(rides) {
                                 <li><a class="dropdown-item" href="#" onclick="viewRideDetails(${ride.id})">
                                     <i class="fas fa-eye me-2"></i>View Details
                                 </a></li>
+                                ${ride.status === 'accepted' || ride.status === 'in_progress' ? `
+                                    <li><a class="dropdown-item" href="#" onclick="showRideMessages(${ride.id})">
+                                        <i class="fas fa-comment me-2"></i>Messages
+                                    </a></li>
+                                ` : ''}
                                 ${ride.status === 'pending' ? `
                                     <li><a class="dropdown-item text-danger" href="#" onclick="cancelRide(${ride.id})">
                                         <i class="fas fa-times me-2"></i>Cancel
@@ -236,7 +241,7 @@ function displayRides(rides) {
                     <div class="row mt-2">
                         <div class="col-12">
                             <small class="text-muted">
-                                Fare: ${formatCurrency(ride.fare)} | 
+                                Fare: ₦${(ride.fare || 0).toFixed(2)} | 
                                 Distance: ${formatDistance(ride.distance)} |
                                 Duration: ${formatDuration(ride.duration)}
                             </small>
@@ -261,7 +266,7 @@ function updateStatistics(rides) {
     document.getElementById('total-rides').textContent = totalRides;
     document.getElementById('pending-rides').textContent = pendingRides;
     document.getElementById('completed-rides').textContent = completedRides;
-    document.getElementById('total-spent').textContent = formatCurrency(totalSpent);
+    document.getElementById('total-spent').textContent = `₦${totalSpent.toFixed(2)}`;
 }
 
 function filterRides(status) {
@@ -305,6 +310,152 @@ async function cancelRide(rideId) {
 function viewRideDetails(rideId) {
     // This would open a modal or navigate to a detailed view
     showAlert('Ride details feature coming soon!', 'info');
+}
+
+// Rider Message Functions
+function showRideMessages(rideId) {
+    // Create and show messages modal (same as driver but read-only for riders)
+    const modalHtml = `
+        <div class="modal fade" id="messages-modal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-comment me-2"></i>Driver Messages
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="messages-container" style="max-height: 300px; overflow-y: auto;" class="mb-3">
+                            <div class="text-center py-3">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading messages...</span>
+                                </div>
+                            </div>
+                        </div>
+                        <form id="send-message-form">
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="message-input" placeholder="Reply to driver..." required>
+                                <button class="btn btn-primary" type="submit">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if any
+    const existingModal = document.getElementById('messages-modal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Add modal to page
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('messages-modal'));
+    modal.show();
+    
+    // Load messages
+    loadRideMessages(rideId);
+    
+    // Set up message sending
+    document.getElementById('send-message-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await sendRideMessage(rideId);
+    });
+}
+
+async function loadRideMessages(rideId) {
+    try {
+        const response = await makeAuthenticatedRequest(`/api/${rideId}/messages/`);
+        
+        if (response.ok) {
+            const messages = await response.json();
+            displayMessages(messages);
+        } else {
+            throw new Error('Failed to load messages');
+        }
+    } catch (error) {
+        console.error('Error loading messages:', error);
+        document.getElementById('messages-container').innerHTML = `
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Unable to load messages
+            </div>
+        `;
+    }
+}
+
+function displayMessages(messages) {
+    const container = document.getElementById('messages-container');
+    
+    if (messages.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-3 text-muted">
+                <i class="fas fa-comment-slash mb-2"></i>
+                <p>No messages yet</p>
+            </div>
+        `;
+        return;
+    }
+    
+    const messagesHtml = messages.map(message => {
+        const isDriver = message.sender.user_type === 'driver';
+        const messageClass = isDriver ? 'bg-primary text-white' : 'bg-light ms-auto';
+        const alignment = isDriver ? 'justify-content-start' : 'justify-content-end';
+        
+        return `
+            <div class="d-flex ${alignment} mb-2">
+                <div class="card ${messageClass}" style="max-width: 70%;">
+                    <div class="card-body p-2">
+                        <div class="d-flex align-items-center mb-1">
+                            <small class="fw-semibold">${isDriver ? 'Driver' : 'You'}</small>
+                            ${message.message_type !== 'general' ? `
+                                <span class="badge badge-sm bg-info ms-2">${message.message_type.replace('_', ' ')}</span>
+                            ` : ''}
+                        </div>
+                        <p class="mb-1">${message.message}</p>
+                        <small class="opacity-75">${formatDate(message.created_at)}</small>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    container.innerHTML = messagesHtml;
+    container.scrollTop = container.scrollHeight;
+}
+
+async function sendRideMessage(rideId) {
+    const messageInput = document.getElementById('message-input');
+    const message = messageInput.value.trim();
+    
+    if (!message) return;
+    
+    try {
+        const response = await makeAuthenticatedRequest(`/api/${rideId}/messages/`, {
+            method: 'POST',
+            body: JSON.stringify({
+                message: message,
+                message_type: 'general'
+            })
+        });
+        
+        if (response.ok) {
+            messageInput.value = '';
+            loadRideMessages(rideId); // Refresh messages
+        } else {
+            throw new Error('Failed to send message');
+        }
+    } catch (error) {
+        console.error('Error sending message:', error);
+        showAlert('Error sending message', 'danger');
+    }
 }
 </script>
 {% endblock %}

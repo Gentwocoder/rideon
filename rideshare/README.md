@@ -30,7 +30,7 @@ A modern, full-stack ride sharing platform built with Django REST Framework and 
 ## Tech Stack
 
 ### Backend
-- **Django 4.2.14**: Python web framework
+- **Django 5.2.4**: Python web framework
 - **Django REST Framework**: API development with comprehensive serialization
 - **SimpleJWT**: JWT authentication with refresh token support
 - **SQLite**: Database (development) with migration support
@@ -54,7 +54,7 @@ A modern, full-stack ride sharing platform built with Django REST Framework and 
 
 1. **Clone and setup the project**:
 ```bash
-cd "/home/gentle/Documents/Ride Sharing Project/rideshare"
+cd "Ride Sharing Project/rideshare"
 ```
 
 2. **Install dependencies**:

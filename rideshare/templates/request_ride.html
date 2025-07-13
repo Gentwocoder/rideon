@@ -3,6 +3,13 @@
 
 {% block title %}Request a Ride - Rideon{% endblock %}
 
+{% block extra_head %}
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+     crossorigin=""/>
+{% endblock %}
+
 {% block content %}
 <div class="container py-4">
     <div class="row justify-content-center">
@@ -15,6 +22,42 @@
                 </div>
                 <div class="card-body p-4">
                     <form id="ride-request-form">
+                        <!-- Ride Type Selection -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-clock text-primary me-2"></i>Ride Type *
+                            </label>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="ride_type" id="immediate" value="immediate" checked>
+                                        <label class="form-check-label" for="immediate">
+                                            <i class="fas fa-bolt text-warning me-2"></i>Ride Now
+                                            <small class="d-block text-muted">Get picked up immediately</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="ride_type" id="scheduled" value="scheduled">
+                                        <label class="form-check-label" for="scheduled">
+                                            <i class="fas fa-calendar-alt text-info me-2"></i>Schedule Ride
+                                            <small class="d-block text-muted">Schedule for later</small>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Scheduled Time (hidden by default) -->
+                        <div class="mb-4 d-none" id="scheduled-time-section">
+                            <label for="scheduled_pickup_time" class="form-label fw-bold">
+                                <i class="fas fa-clock text-info me-2"></i>Pickup Time *
+                            </label>
+                            <input type="datetime-local" class="form-control" id="scheduled_pickup_time" name="scheduled_pickup_time">
+                            <small class="form-text text-muted">Select when you want to be picked up</small>
+                        </div>
+
                         <!-- Pickup Location -->
                         <div class="mb-4">
                             <label for="pickup_location" class="form-label fw-bold">
@@ -22,13 +65,17 @@
                             </label>
                             <div class="input-group">
                                 <input type="text" class="form-control" id="pickup_location" name="pickup_location" 
-                                       placeholder="Enter pickup address" required>
-                                <button class="btn btn-outline-secondary" type="button" onclick="getCurrentLocation('pickup')">
+                                       placeholder="Enter pickup address (e.g., 123 Ikeja Road, Lagos)" required>
+                                <button class="btn btn-outline-secondary" type="button" onclick="getCurrentLocation('pickup')" title="Use current location">
                                     <i class="fas fa-crosshairs"></i>
+                                </button>
+                                <button class="btn btn-outline-primary" type="button" onclick="searchLocation('pickup')" title="Search location">
+                                    <i class="fas fa-search"></i>
                                 </button>
                             </div>
                             <input type="hidden" id="pickup_latitude" name="pickup_latitude">
                             <input type="hidden" id="pickup_longitude" name="pickup_longitude">
+                            <small class="form-text text-muted">Enter a full address for better accuracy</small>
                         </div>
 
                         <!-- Dropoff Location -->
@@ -38,27 +85,35 @@
                             </label>
                             <div class="input-group">
                                 <input type="text" class="form-control" id="dropoff_location" name="dropoff_location" 
-                                       placeholder="Enter destination address" required>
-                                <button class="btn btn-outline-secondary" type="button" onclick="getCurrentLocation('dropoff')">
-                                    <i class="fas fa-crosshairs"></i>
+                                       placeholder="Enter destination address (e.g., 456 Victoria Island, Lagos)" required>
+                                <button class="btn btn-outline-primary" type="button" onclick="searchLocation('dropoff')" title="Search location">
+                                    <i class="fas fa-search"></i>
                                 </button>
                             </div>
                             <input type="hidden" id="dropoff_latitude" name="dropoff_latitude">
                             <input type="hidden" id="dropoff_longitude" name="dropoff_longitude">
+                            <small class="form-text text-muted">Enter a full address for better accuracy</small>
                         </div>
 
-                        <!-- Map Preview -->
+                        <!-- Interactive Map -->
                         <div class="mb-4">
                             <label class="form-label fw-bold">
                                 <i class="fas fa-map me-2"></i>Route Preview
                             </label>
-                            <div class="map-container bg-light border rounded d-flex align-items-center justify-content-center">
-                                <div class="text-center text-muted">
-                                    <i class="fas fa-map display-4 mb-3"></i>
-                                    <p>Map will appear here when locations are set</p>
-                                    <small>Interactive map integration coming soon</small>
+                            <div class="map-container border rounded" style="height: 300px; position: relative;">
+                                <div id="map" style="width: 100%; height: 100%;"></div>
+                                <div id="map-placeholder" class="d-flex align-items-center justify-content-center h-100 bg-light text-center">
+                                    <div>
+                                        <i class="fas fa-map display-4 mb-3 text-muted"></i>
+                                        <p class="text-muted">Interactive map will appear here</p>
+                                        <small class="text-muted">Enter pickup and dropoff locations to see route</small>
+                                    </div>
                                 </div>
                             </div>
+                            <small class="form-text text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Map will show your route and estimated distance once locations are set
+                            </small>
                         </div>
 
                         <!-- Ride Details -->
@@ -92,13 +147,40 @@
                             </div>
                         </div>
 
+                        <!-- Payment Method -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-credit-card text-success me-2"></i>Payment Method *
+                            </label>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="payment_method" id="cash" value="cash" checked>
+                                        <label class="form-check-label" for="cash">
+                                            <i class="fas fa-money-bill-wave text-success me-2"></i>Cash
+                                            <small class="d-block text-muted">Pay with cash upon completion</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="payment_method" id="card" value="card" disabled>
+                                        <label class="form-check-label text-muted" for="card">
+                                            <i class="fas fa-credit-card text-muted me-2"></i>Credit/Debit Card
+                                            <small class="d-block text-muted">Coming soon</small>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Additional Notes -->
                         <div class="mb-4">
                             <label for="notes" class="form-label fw-bold">
                                 <i class="fas fa-comment me-2"></i>Additional Notes (Optional)
                             </label>
                             <textarea class="form-control" id="notes" name="notes" rows="3" 
-                                      placeholder="Any special instructions for the driver..."></textarea>
+                                      placeholder="Any special instructions for the driver, incase offline input your contact"></textarea>
                         </div>
 
                         <!-- Submit Button -->
@@ -148,6 +230,11 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- Leaflet JavaScript -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+     crossorigin=""></script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Redirect if not authenticated
@@ -163,8 +250,22 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('ride-request-form').addEventListener('submit', handleRideRequest);
     
     // Set up location change listeners
+    document.getElementById('pickup_location').addEventListener('input', debounce(handleLocationInput, 500));
+    document.getElementById('dropoff_location').addEventListener('input', debounce(handleLocationInput, 500));
     document.getElementById('pickup_location').addEventListener('blur', updateEstimates);
     document.getElementById('dropoff_location').addEventListener('blur', updateEstimates);
+    
+    // Set up ride type radio button listeners
+    document.getElementById('immediate').addEventListener('change', handleRideTypeChange);
+    document.getElementById('scheduled').addEventListener('change', handleRideTypeChange);
+    
+    // Set minimum datetime for scheduled rides (30 minutes from now)
+    const now = new Date();
+    now.setMinutes(now.getMinutes() + 30);
+    document.getElementById('scheduled_pickup_time').min = now.toISOString().slice(0, 16);
+    
+    // Initialize map
+    initializeMap();
 });
 
 async function handleRideRequest(e) {
@@ -186,6 +287,7 @@ async function handleRideRequest(e) {
     
     try {
         const formData = new FormData(e.target);
+        const isScheduled = formData.get('ride_type') === 'scheduled';
         const rideData = {
             pickup_location: formData.get('pickup_location'),
             pickup_latitude: formatCoordinate(formData.get('pickup_latitude')),
@@ -193,6 +295,9 @@ async function handleRideRequest(e) {
             dropoff_location: formData.get('dropoff_location'),
             dropoff_latitude: formatCoordinate(formData.get('dropoff_latitude')),
             dropoff_longitude: formatCoordinate(formData.get('dropoff_longitude')),
+            is_scheduled: isScheduled,
+            scheduled_pickup_time: isScheduled ? formData.get('scheduled_pickup_time') : null,
+            payment_method: formData.get('payment_method'),
             notes: formData.get('notes') || ''
         };
         
@@ -258,6 +363,8 @@ function validateRideForm() {
     const pickupLng = parseFloat(document.getElementById('pickup_longitude').value);
     const dropoffLat = parseFloat(document.getElementById('dropoff_latitude').value);
     const dropoffLng = parseFloat(document.getElementById('dropoff_longitude').value);
+    const isScheduled = document.getElementById('scheduled').checked;
+    const scheduledTime = document.getElementById('scheduled_pickup_time').value;
     
     if (!pickupLocation) {
         showAlert('Please enter a pickup location', 'warning');
@@ -271,19 +378,36 @@ function validateRideForm() {
         return false;
     }
     
-    // If coordinates are missing or zero, set default coordinates for testing
+    // Validate scheduled time if scheduled ride is selected
+    if (isScheduled) {
+        if (!scheduledTime) {
+            showAlert('Please select a pickup time for scheduled ride', 'warning');
+            document.getElementById('scheduled_pickup_time').focus();
+            return false;
+        }
+        
+        const scheduledDate = new Date(scheduledTime);
+        const now = new Date();
+        const minTime = new Date(now.getTime() + 30 * 60000); // 30 minutes from now
+        
+        if (scheduledDate <= minTime) {
+            showAlert('Scheduled pickup time must be at least 30 minutes from now', 'warning');
+            document.getElementById('scheduled_pickup_time').focus();
+            return false;
+        }
+    }
+    
+    // If coordinates are missing, require user to search for locations
     if (!pickupLat || !pickupLng) {
-        // Default to New York coordinates for pickup (6 decimal places)
-        document.getElementById('pickup_latitude').value = 40.712800;
-        document.getElementById('pickup_longitude').value = -74.006000;
-        showAlert('Using default coordinates for pickup location', 'info', 3000);
+        showAlert('Please search for pickup location to get coordinates', 'warning');
+        document.getElementById('pickup_location').focus();
+        return false;
     }
     
     if (!dropoffLat || !dropoffLng) {
-        // Default to slightly different coordinates for dropoff (6 decimal places)
-        document.getElementById('dropoff_latitude').value = 40.758900;
-        document.getElementById('dropoff_longitude').value = -73.985100;
-        showAlert('Using default coordinates for dropoff location', 'info', 3000);
+        showAlert('Please search for dropoff location to get coordinates', 'warning');
+        document.getElementById('dropoff_location').focus();
+        return false;
     }
     
     if (pickupLocation.toLowerCase() === dropoffLocation.toLowerCase()) {
@@ -292,6 +416,58 @@ function validateRideForm() {
     }
     
     return true;
+}
+
+// Handle location input changes
+function handleLocationInput() {
+    const pickupLocation = document.getElementById('pickup_location').value.trim();
+    const dropoffLocation = document.getElementById('dropoff_location').value.trim();
+    
+    // Auto-search if both locations have some text
+    if (pickupLocation.length > 3 && dropoffLocation.length > 3) {
+        autoGeocodeAndShowRoute();
+    }
+}
+
+// Debounce function to limit API calls
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// Auto-geocode both locations and show route
+async function autoGeocodeAndShowRoute() {
+    const pickupLocation = document.getElementById('pickup_location').value.trim();
+    const dropoffLocation = document.getElementById('dropoff_location').value.trim();
+    
+    try {
+        // Geocode both locations
+        const [pickupCoords, dropoffCoords] = await Promise.all([
+            geocodeAddress(pickupLocation),
+            geocodeAddress(dropoffLocation)
+        ]);
+        
+        // Set coordinates
+        document.getElementById('pickup_latitude').value = formatCoordinate(pickupCoords.latitude);
+        document.getElementById('pickup_longitude').value = formatCoordinate(pickupCoords.longitude);
+        document.getElementById('dropoff_latitude').value = formatCoordinate(dropoffCoords.latitude);
+        document.getElementById('dropoff_longitude').value = formatCoordinate(dropoffCoords.longitude);
+        
+        // Update estimates and map
+        updateEstimates();
+        updateMap();
+        
+    } catch (error) {
+        console.log('Auto-geocoding failed:', error);
+        // Don't show error to user for auto-geocoding
+    }
 }
 
 // Helper function to format coordinates to 6 decimal places
@@ -303,23 +479,27 @@ async function getCurrentLocation(type) {
     try {
         showAlert('Getting your current location...', 'info', 3000);
         
-        const location = await getUserLocation();
+        // Try to get actual location first
+        let location;
+        try {
+            location = await getUserLocation();
+        } catch (error) {
+            // Fallback to Lagos coordinates if geolocation fails
+            location = { latitude: 6.5244, longitude: 3.3792 };
+            console.log('Using fallback Lagos coordinates');
+        }
         
-        // For demo purposes, we'll set mock coordinates
-        // In a real app, you'd use a geocoding service to get the address
+        // For demo purposes, we'll use a simple address format
         const mockAddress = `Current Location (${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)})`;
         
         if (type === 'pickup') {
             document.getElementById('pickup_location').value = mockAddress;
             document.getElementById('pickup_latitude').value = formatCoordinate(location.latitude);
             document.getElementById('pickup_longitude').value = formatCoordinate(location.longitude);
-        } else {
-            document.getElementById('dropoff_location').value = mockAddress;
-            document.getElementById('dropoff_latitude').value = formatCoordinate(location.latitude);
-            document.getElementById('dropoff_longitude').value = formatCoordinate(location.longitude);
         }
         
         updateEstimates();
+        updateMap();
         showAlert('Location updated successfully', 'success', 2000);
         
     } catch (error) {
@@ -338,13 +518,16 @@ function updateEstimates() {
         // Calculate estimates
         const distance = calculateDistance(pickupLat, pickupLng, dropoffLat, dropoffLng);
         const duration = Math.round(distance * 2.5); // Rough estimate: 2.5 minutes per km
-        const baseFare = 3.00; // Base fare
-        const perKmRate = 1.50; // Rate per km
+        const baseFare = 500.00; // Base fare in Nigerian Naira
+        const perKmRate = 200.00; // Rate per km in Nigerian Naira
         const fare = baseFare + (distance * perKmRate);
         
-        document.getElementById('estimated-distance').textContent = `${distance} km`;
+        document.getElementById('estimated-distance').textContent = `${distance.toFixed(2)} km`;
         document.getElementById('estimated-duration').textContent = `${duration} min`;
-        document.getElementById('estimated-fare').textContent = formatCurrency(fare);
+        document.getElementById('estimated-fare').textContent = `₦${fare.toFixed(2)}`;
+        
+        // Update map if available
+        updateMap();
     } else {
         clearEstimates();
     }
@@ -360,16 +543,204 @@ function goToDashboard() {
     window.location.href = '/dashboard/';
 }
 
-// Mock geocoding function (in a real app, you'd use Google Maps API or similar)
+// Handle ride type change (immediate vs scheduled)
+function handleRideTypeChange() {
+    const isScheduled = document.getElementById('scheduled').checked;
+    const scheduledSection = document.getElementById('scheduled-time-section');
+    const scheduledInput = document.getElementById('scheduled_pickup_time');
+    
+    if (isScheduled) {
+        scheduledSection.classList.remove('d-none');
+        scheduledInput.required = true;
+    } else {
+        scheduledSection.classList.add('d-none');
+        scheduledInput.required = false;
+        scheduledInput.value = '';
+    }
+}
+
+// Enhanced location search function
+async function searchLocation(type) {
+    const locationInput = document.getElementById(`${type}_location`);
+    const address = locationInput.value.trim();
+    
+    if (!address) {
+        showAlert('Please enter an address to search', 'warning');
+        return;
+    }
+    
+    try {
+        showAlert('Searching for location...', 'info', 3000);
+        
+        // Use geocoding service (mock implementation)
+        const coords = await geocodeAddress(address);
+        
+        // Set the coordinates
+        document.getElementById(`${type}_latitude`).value = formatCoordinate(coords.latitude);
+        document.getElementById(`${type}_longitude`).value = formatCoordinate(coords.longitude);
+        
+        // Keep the original address, don't modify it
+        // locationInput.value remains as user entered
+        
+        updateEstimates();
+        updateMap();
+        showAlert('Location coordinates found successfully', 'success', 2000);
+        
+    } catch (error) {
+        console.error('Error searching location:', error);
+        showAlert('Unable to find location. Please check the address.', 'warning');
+    }
+}
+
+// Initialize interactive map
+let map = null;
+let pickupMarker = null;
+let dropoffMarker = null;
+let routeLine = null;
+
+function initializeMap() {
+    // Check if Leaflet is available
+    if (typeof L === 'undefined') {
+        console.log('Leaflet not loaded, using placeholder map');
+        return;
+    }
+    
+    try {
+        // Initialize map centered on Lagos, Nigeria
+        map = L.map('map').setView([6.5244, 3.3792], 12);
+        
+        // Add tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        
+        // Hide placeholder when map is ready
+        document.getElementById('map-placeholder').style.display = 'none';
+        document.getElementById('map').style.display = 'block';
+        
+        console.log('Map initialized successfully');
+        
+    } catch (error) {
+        console.error('Error initializing map:', error);
+    }
+}
+
+function updateMap() {
+    if (!map) {
+        console.log('Map not initialized, trying to initialize...');
+        initializeMap();
+        return;
+    }
+    
+    const pickupLat = parseFloat(document.getElementById('pickup_latitude').value);
+    const pickupLng = parseFloat(document.getElementById('pickup_longitude').value);
+    const dropoffLat = parseFloat(document.getElementById('dropoff_latitude').value);
+    const dropoffLng = parseFloat(document.getElementById('dropoff_longitude').value);
+    
+    console.log('Updating map with coordinates:', { pickupLat, pickupLng, dropoffLat, dropoffLng });
+    
+    // Clear existing markers and route
+    if (pickupMarker) {
+        map.removeLayer(pickupMarker);
+        pickupMarker = null;
+    }
+    if (dropoffMarker) {
+        map.removeLayer(dropoffMarker);
+        dropoffMarker = null;
+    }
+    if (routeLine) {
+        map.removeLayer(routeLine);
+        routeLine = null;
+    }
+    
+    const markers = [];
+    
+    // Add pickup marker
+    if (pickupLat && pickupLng && !isNaN(pickupLat) && !isNaN(pickupLng)) {
+        pickupMarker = L.marker([pickupLat, pickupLng]).addTo(map);
+        pickupMarker.bindPopup('<strong>Pickup Location</strong><br>' + document.getElementById('pickup_location').value);
+        markers.push([pickupLat, pickupLng]);
+        console.log('Added pickup marker at:', pickupLat, pickupLng);
+    }
+    
+    // Add dropoff marker
+    if (dropoffLat && dropoffLng && !isNaN(dropoffLat) && !isNaN(dropoffLng)) {
+        dropoffMarker = L.marker([dropoffLat, dropoffLng], {
+            icon: L.icon({
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                shadowSize: [41, 41]
+            })
+        }).addTo(map);
+        dropoffMarker.bindPopup('<strong>Dropoff Location</strong><br>' + document.getElementById('dropoff_location').value);
+        markers.push([dropoffLat, dropoffLng]);
+        console.log('Added dropoff marker at:', dropoffLat, dropoffLng);
+    }
+    
+    // Draw route line if both points exist
+    if (markers.length === 2) {
+        routeLine = L.polyline(markers, {
+            color: '#007bff',
+            weight: 4,
+            opacity: 0.7
+        }).addTo(map);
+        
+        // Fit map to show both markers with padding
+        map.fitBounds(markers, { padding: [20, 20] });
+        console.log('Added route line and fitted bounds');
+    } else if (markers.length === 1) {
+        // Center on single marker
+        map.setView(markers[0], 15);
+        console.log('Centered on single marker');
+    }
+}
+
+// Mock geocoding function (replace with real service like Google Maps or Mapbox)
 function geocodeAddress(address) {
-    // This is a mock function
-    // In reality, you'd call a geocoding service
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+        // This is a mock implementation for Nigerian locations
+        // In a real app, you would use a service like:
+        // - Google Maps Geocoding API
+        // - Mapbox Geocoding API
+        // - OpenStreetMap Nominatim
+        
         setTimeout(() => {
-            // Return mock coordinates
+            // Nigerian cities and locations
+            const mockLocations = {
+                'lagos': { latitude: 6.5244, longitude: 3.3792 },
+                'ikeja': { latitude: 6.6018, longitude: 3.3515 },
+                'victoria island': { latitude: 6.4281, longitude: 3.4219 },
+                'ikoyi': { latitude: 6.4474, longitude: 3.4323 },
+                'surulere': { latitude: 6.4969, longitude: 3.3654 },
+                'yaba': { latitude: 6.5158, longitude: 3.3707 },
+                'lekki': { latitude: 6.4698, longitude: 3.5852 },
+                'ajah': { latitude: 6.4698, longitude: 3.6043 },
+                'maryland': { latitude: 6.5568, longitude: 3.3724 },
+                'gbagada': { latitude: 6.5568, longitude: 3.3835 },
+                'abuja': { latitude: 9.0765, longitude: 7.3986 },
+                'kano': { latitude: 12.0022, longitude: 8.5920 },
+                'port harcourt': { latitude: 4.8156, longitude: 7.0498 },
+                'ibadan': { latitude: 7.3775, longitude: 3.9470 }
+            };
+            
+            const searchLower = address.toLowerCase();
+            for (const [key, coords] of Object.entries(mockLocations)) {
+                if (searchLower.includes(key)) {
+                    resolve({
+                        latitude: coords.latitude + (Math.random() - 0.5) * 0.001, // Small randomization
+                        longitude: coords.longitude + (Math.random() - 0.5) * 0.001
+                    });
+                    return;
+                }
+            }
+            
+            // Default to Lagos area with some randomization if location not found
             resolve({
-                latitude: 40.7128 + (Math.random() - 0.5) * 0.1,
-                longitude: -74.0060 + (Math.random() - 0.5) * 0.1
+                latitude: 6.5244 + (Math.random() - 0.5) * 0.05,
+                longitude: 3.3792 + (Math.random() - 0.5) * 0.05
             });
         }, 1000);
     });
