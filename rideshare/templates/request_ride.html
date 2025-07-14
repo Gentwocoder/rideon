@@ -4,10 +4,64 @@
 {% block title %}Request a Ride - Rideon{% endblock %}
 
 {% block extra_head %}
-<!-- Leaflet CSS -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-     crossorigin=""/>
+<!-- Google Maps API -->
+<!-- Note: Replace 'YOUR_API_KEY' with your actual Google Maps API key -->
+<!-- Get your API key from: https://developers.google.com/maps/documentation/javascript/get-api-key -->
+<!-- For demo purposes, we'll use a fallback map system when Google Maps is not available -->
+<script>
+    // Check if we have a valid Google Maps API key
+    const GOOGLE_MAPS_API_KEY = 'YOUR_API_KEY'; // Replace with your actual API key
+    
+    // Only load Google Maps if we have a valid API key
+    if (GOOGLE_MAPS_API_KEY && GOOGLE_MAPS_API_KEY !== 'YOUR_API_KEY') {
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,geometry&callback=initMap`;
+        script.async = true;
+        script.defer = true;
+        script.onerror = function() {
+            console.warn('Google Maps API failed to load, using fallback map');
+            window.useGoogleMaps = false;
+            waitForLeafletAndInit();
+        };
+        document.head.appendChild(script);
+        window.useGoogleMaps = true;
+    } else {
+        console.warn('Google Maps API key not configured, using fallback map');
+        window.useGoogleMaps = false;
+        // Wait for both DOM and Leaflet to be ready
+        waitForLeafletAndInit();
+    }
+    
+    function waitForLeafletAndInit() {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', checkLeafletAndInit);
+        } else {
+            checkLeafletAndInit();
+        }
+    }
+    
+    function checkLeafletAndInit() {
+        if (typeof L !== 'undefined') {
+            initFallbackMap();
+        } else {
+            // Wait a bit more for Leaflet to load
+            setTimeout(checkLeafletAndInit, 100);
+        }
+    }
+</script>
+<!-- Leaflet CSS for fallback map -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<!-- Leaflet JS for fallback map -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" onload="console.log('Leaflet loaded successfully')"></script>
+<style>
+    #map {
+        width: 100%;
+        height: 100%;
+    }
+    .gm-style-iw {
+        color: #333;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -230,12 +284,154 @@
 {% endblock %}
 
 {% block extra_js %}
-<!-- Leaflet JavaScript -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-     crossorigin=""></script>
-
 <script>
+// Global variables for Google Maps
+let map;
+let pickupMarker;
+let dropoffMarker;
+let autocompletePickup;
+let autocompleteDropoff;
+
+// Initialize Google Maps
+function initMap() {
+    // Initialize map centered on Lagos, Nigeria
+    map = new google.maps.Map(document.getElementById('map'), {
+        zoom: 12,
+        center: { lat: 6.5244, lng: 3.3792 }, // Lagos coordinates
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false
+    });
+
+    // Initialize directions service and renderer
+    directionsService = new google.maps.DirectionsService();
+    directionsRenderer = new google.maps.DirectionsRenderer({
+        draggable: false,
+        markerOptions: {
+            animation: google.maps.Animation.DROP
+        }
+    });
+    directionsRenderer.setMap(map);
+
+    // Hide map placeholder
+    document.getElementById('map-placeholder').style.display = 'none';
+    document.getElementById('map').style.display = 'block';
+
+    // Initialize autocomplete for pickup and dropoff inputs
+    initializeAutocomplete();
+
+    console.log('Google Maps initialized successfully');
+}
+
+function initializeAutocomplete() {
+    const pickupInput = document.getElementById('pickup_location');
+    const dropoffInput = document.getElementById('dropoff_location');
+
+    // Create autocomplete instances with Nigerian bias
+    const options = {
+        componentRestrictions: { country: 'ng' }, // Restrict to Nigeria
+        fields: ['place_id', 'geometry', 'name', 'formatted_address']
+    };
+
+    autocompletePickup = new google.maps.places.Autocomplete(pickupInput, options);
+    autocompleteDropoff = new google.maps.places.Autocomplete(dropoffInput, options);
+
+    // Add listeners for place selection
+    autocompletePickup.addListener('place_changed', function() {
+        const place = autocompletePickup.getPlace();
+        if (place.geometry) {
+            document.getElementById('pickup_latitude').value = place.geometry.location.lat();
+            document.getElementById('pickup_longitude').value = place.geometry.location.lng();
+            updateMapWithRoute();
+        }
+    });
+
+    autocompleteDropoff.addListener('place_changed', function() {
+        const place = autocompleteDropoff.getPlace();
+        if (place.geometry) {
+            document.getElementById('dropoff_latitude').value = place.geometry.location.lat();
+            document.getElementById('dropoff_longitude').value = place.geometry.location.lng();
+            updateMapWithRoute();
+        }
+    });
+}
+
+function updateMapWithRoute() {
+    const pickupLat = parseFloat(document.getElementById('pickup_latitude').value);
+    const pickupLng = parseFloat(document.getElementById('pickup_longitude').value);
+    const dropoffLat = parseFloat(document.getElementById('dropoff_latitude').value);
+    const dropoffLng = parseFloat(document.getElementById('dropoff_longitude').value);
+
+    console.log('Updating map with route:', { pickupLat, pickupLng, dropoffLat, dropoffLng });
+
+    // Clear existing route
+    directionsRenderer.setDirections({ routes: [] });
+
+    // If both locations are available, calculate and display route
+    if (pickupLat && pickupLng && dropoffLat && dropoffLng && 
+        !isNaN(pickupLat) && !isNaN(pickupLng) && !isNaN(dropoffLat) && !isNaN(dropoffLng)) {
+        
+        const pickup = new google.maps.LatLng(pickupLat, pickupLng);
+        const dropoff = new google.maps.LatLng(dropoffLat, dropoffLng);
+
+        const request = {
+            origin: pickup,
+            destination: dropoff,
+            travelMode: google.maps.TravelMode.DRIVING,
+            unitSystem: google.maps.UnitSystem.METRIC,
+            avoidHighways: false,
+            avoidTolls: false
+        };
+
+        directionsService.route(request, function(result, status) {
+            if (status === 'OK') {
+                directionsRenderer.setDirections(result);
+                
+                // Update distance and duration info
+                const route = result.routes[0];
+                const leg = route.legs[0];
+                updateRideInfo(leg.distance.text, leg.duration.text);
+                
+                console.log('Route calculated successfully:', {
+                    distance: leg.distance.text,
+                    duration: leg.duration.text
+                });
+            } else {
+                console.error('Directions request failed due to:', status);
+                showAlert('Could not calculate route. Please check your locations.', 'warning');
+            }
+        });
+    } else if (pickupLat && pickupLng && !isNaN(pickupLat) && !isNaN(pickupLng)) {
+        // Only pickup location available, center map on it
+        map.setCenter(new google.maps.LatLng(pickupLat, pickupLng));
+        map.setZoom(15);
+    }
+}
+
+function updateRideInfo(distance, duration) {
+    // Update the distance and duration display
+    const distanceElement = document.querySelector('.route-distance');
+    const durationElement = document.querySelector('.route-duration');
+    
+    if (distanceElement) {
+        distanceElement.textContent = distance;
+    }
+    if (durationElement) {
+        durationElement.textContent = duration;
+    }
+
+    // Calculate estimated fare based on distance
+    const distanceValue = parseFloat(distance.replace(/[^\d.]/g, ''));
+    const baseFare = 500; // Base fare in Naira
+    const perKmRate = 150; // Rate per km in Naira
+    const estimatedFare = baseFare + (distanceValue * perKmRate);
+    
+    const fareElement = document.querySelector('.estimated-fare');
+    if (fareElement) {
+        fareElement.textContent = `₦${estimatedFare.toLocaleString()}`;
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // Redirect if not authenticated
     if (!isAuthenticated()) {
@@ -265,7 +461,12 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('scheduled_pickup_time').min = now.toISOString().slice(0, 16);
     
     // Initialize map
-    initializeMap();
+    if (typeof google !== 'undefined') {
+        // Google Maps will be initialized via callback
+        console.log('Google Maps API loaded');
+    } else {
+        console.log('Google Maps API not loaded yet');
+    }
 });
 
 async function handleRideRequest(e) {
@@ -592,21 +793,76 @@ async function searchLocation(type) {
     }
 }
 
-// Initialize interactive map
-let map = null;
-let pickupMarker = null;
-let dropoffMarker = null;
-let routeLine = null;
+// Initialize Google Maps
+let directionsService = null;
+let directionsRenderer = null;
 
-function initializeMap() {
-    // Check if Leaflet is available
-    if (typeof L === 'undefined') {
-        console.log('Leaflet not loaded, using placeholder map');
+// Global flag to determine which map system to use
+window.useGoogleMaps = false;
+
+function initMap() {
+    if (!window.useGoogleMaps || typeof google === 'undefined') {
+        console.log('Google Maps not available, using fallback map');
+        initFallbackMap();
         return;
     }
     
     try {
-        // Initialize map centered on Lagos, Nigeria
+        // Initialize Google Maps
+        map = new google.maps.Map(document.getElementById('map'), {
+            center: { lat: 6.5244, lng: 3.3792 },
+            zoom: 12,
+            mapTypeControl: false,
+            streetViewControl: false,
+            fullscreenControl: false,
+            styles: [
+                {
+                    featureType: 'poi',
+                    elementType: 'labels',
+                    stylers: [{ visibility: 'off' }]
+                }
+            ]
+        });
+
+        // Initialize directions service and renderer
+        directionsService = new google.maps.DirectionsService();
+        directionsRenderer = new google.maps.DirectionsRenderer({
+            draggable: false,
+            suppressMarkers: false,
+            polylineOptions: {
+                strokeColor: '#007bff',
+                strokeWeight: 4,
+                strokeOpacity: 0.8
+            }
+        });
+        directionsRenderer.setMap(map);
+
+        // Initialize Places Autocomplete for location inputs
+        initializeAutocomplete();
+
+        // Hide placeholder when map is ready
+        document.getElementById('map-placeholder').style.display = 'none';
+        document.getElementById('map').style.display = 'block';
+        
+        console.log('Google Maps initialized successfully');
+        
+    } catch (error) {
+        console.error('Error initializing Google Maps:', error);
+        window.useGoogleMaps = false;
+        initFallbackMap();
+    }
+}
+
+function initFallbackMap() {
+    // Wait for Leaflet to be available
+    if (typeof L === 'undefined') {
+        console.log('Waiting for Leaflet to load...');
+        setTimeout(initFallbackMap, 100);
+        return;
+    }
+    
+    try {
+        // Initialize Leaflet map
         map = L.map('map').setView([6.5244, 3.3792], 12);
         
         // Add tile layer
@@ -618,17 +874,30 @@ function initializeMap() {
         document.getElementById('map-placeholder').style.display = 'none';
         document.getElementById('map').style.display = 'block';
         
-        console.log('Map initialized successfully');
+        console.log('Leaflet fallback map initialized successfully');
         
     } catch (error) {
-        console.error('Error initializing map:', error);
+        console.error('Error initializing fallback map:', error);
+        // Show placeholder with error message
+        const placeholder = document.getElementById('map-placeholder');
+        placeholder.innerHTML = `
+            <div class="text-center">
+                <i class="fas fa-map-marked-alt display-4 mb-3 text-muted"></i>
+                <p class="text-muted">Map temporarily unavailable</p>
+                <small class="text-muted">Route information will still be calculated</small>
+            </div>
+        `;
     }
 }
 
 function updateMap() {
     if (!map) {
         console.log('Map not initialized, trying to initialize...');
-        initializeMap();
+        if (window.useGoogleMaps && typeof google !== 'undefined') {
+            initMap();
+        } else {
+            initFallbackMap();
+        }
         return;
     }
     
@@ -639,6 +908,138 @@ function updateMap() {
     
     console.log('Updating map with coordinates:', { pickupLat, pickupLng, dropoffLat, dropoffLng });
     
+    if (window.useGoogleMaps && typeof google !== 'undefined') {
+        updateGoogleMap(pickupLat, pickupLng, dropoffLat, dropoffLng);
+    } else {
+        updateLeafletMap(pickupLat, pickupLng, dropoffLat, dropoffLng);
+    }
+}
+
+function updateGoogleMap(pickupLat, pickupLng, dropoffLat, dropoffLng) {
+    // Clear existing markers
+    if (pickupMarker) {
+        pickupMarker.setMap(null);
+        pickupMarker = null;
+    }
+    if (dropoffMarker) {
+        dropoffMarker.setMap(null);
+        dropoffMarker = null;
+    }
+    
+    // Clear existing route
+    if (directionsRenderer) {
+        directionsRenderer.setDirections({ routes: [] });
+    }
+    
+    const bounds = new google.maps.LatLngBounds();
+    let hasValidCoordinates = false;
+    
+    // Add pickup marker
+    if (pickupLat && pickupLng && !isNaN(pickupLat) && !isNaN(pickupLng)) {
+        const pickupPos = { lat: pickupLat, lng: pickupLng };
+        pickupMarker = new google.maps.Marker({
+            position: pickupPos,
+            map: map,
+            title: 'Pickup Location',
+            icon: {
+                url: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',
+                scaledSize: new google.maps.Size(32, 32)
+            }
+        });
+        
+        const pickupInfoWindow = new google.maps.InfoWindow({
+            content: '<strong>Pickup Location</strong><br>' + document.getElementById('pickup_location').value
+        });
+        
+        pickupMarker.addListener('click', () => {
+            pickupInfoWindow.open(map, pickupMarker);
+        });
+        
+        bounds.extend(pickupPos);
+        hasValidCoordinates = true;
+        console.log('Added pickup marker at:', pickupLat, pickupLng);
+    }
+    
+    // Add dropoff marker
+    if (dropoffLat && dropoffLng && !isNaN(dropoffLat) && !isNaN(dropoffLng)) {
+        const dropoffPos = { lat: dropoffLat, lng: dropoffLng };
+        dropoffMarker = new google.maps.Marker({
+            position: dropoffPos,
+            map: map,
+            title: 'Dropoff Location',
+            icon: {
+                url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+                scaledSize: new google.maps.Size(32, 32)
+            }
+        });
+        
+        const dropoffInfoWindow = new google.maps.InfoWindow({
+            content: '<strong>Dropoff Location</strong><br>' + document.getElementById('dropoff_location').value
+        });
+        
+        dropoffMarker.addListener('click', () => {
+            dropoffInfoWindow.open(map, dropoffMarker);
+        });
+        
+        bounds.extend(dropoffPos);
+        hasValidCoordinates = true;
+        console.log('Added dropoff marker at:', dropoffLat, dropoffLng);
+    }
+    
+    // Draw route if both points exist
+    if (pickupMarker && dropoffMarker) {
+        const request = {
+            origin: pickupMarker.getPosition(),
+            destination: dropoffMarker.getPosition(),
+            travelMode: google.maps.TravelMode.DRIVING,
+            unitSystem: google.maps.UnitSystem.METRIC,
+            avoidHighways: false,
+            avoidTolls: false
+        };
+        
+        directionsService.route(request, (result, status) => {
+            if (status === 'OK') {
+                directionsRenderer.setDirections(result);
+                console.log('Route displayed successfully');
+                
+                // Calculate and display route info
+                const route = result.routes[0];
+                const leg = route.legs[0];
+                const distance = leg.distance.text;
+                const duration = leg.duration.text;
+                
+                console.log(`Route: ${distance}, ${duration}`);
+                
+                // Update fare calculation with route distance
+                updateFareEstimate(leg.distance.value, leg.duration.value);
+            } else {
+                console.error('Directions request failed due to ' + status);
+                // Fall back to fitting bounds if route fails
+                if (hasValidCoordinates) {
+                    map.fitBounds(bounds, { padding: 50 });
+                }
+                // Use straight-line distance for fare calculation
+                if (pickupLat && pickupLng && dropoffLat && dropoffLng) {
+                    const distance = calculateDistance(pickupLat, pickupLng, dropoffLat, dropoffLng);
+                    updateFareEstimateFromDistance(distance);
+                }
+            }
+        });
+    } else if (hasValidCoordinates) {
+        // Center on available markers
+        map.fitBounds(bounds, { padding: 50 });
+        console.log('Centered on available markers');
+    }
+}
+
+function updateLeafletMap(pickupLat, pickupLng, dropoffLat, dropoffLng) {
+    // Check if Leaflet is available
+    if (typeof L === 'undefined') {
+        console.log('Leaflet not yet available, waiting...');
+        setTimeout(() => updateLeafletMap(pickupLat, pickupLng, dropoffLat, dropoffLng), 100);
+        return;
+    }
+    
     // Clear existing markers and route
     if (pickupMarker) {
         map.removeLayer(pickupMarker);
@@ -648,9 +1049,9 @@ function updateMap() {
         map.removeLayer(dropoffMarker);
         dropoffMarker = null;
     }
-    if (routeLine) {
-        map.removeLayer(routeLine);
-        routeLine = null;
+    if (window.routeLine) {
+        map.removeLayer(window.routeLine);
+        window.routeLine = null;
     }
     
     const markers = [];
@@ -682,7 +1083,7 @@ function updateMap() {
     
     // Draw route line if both points exist
     if (markers.length === 2) {
-        routeLine = L.polyline(markers, {
+        window.routeLine = L.polyline(markers, {
             color: '#007bff',
             weight: 4,
             opacity: 0.7
@@ -691,6 +1092,10 @@ function updateMap() {
         // Fit map to show both markers with padding
         map.fitBounds(markers, { padding: [20, 20] });
         console.log('Added route line and fitted bounds');
+        
+        // Calculate distance and update fare
+        const distance = calculateDistance(pickupLat, pickupLng, dropoffLat, dropoffLng);
+        updateFareEstimateFromDistance(distance);
     } else if (markers.length === 1) {
         // Center on single marker
         map.setView(markers[0], 15);
@@ -698,52 +1103,217 @@ function updateMap() {
     }
 }
 
-// Mock geocoding function (replace with real service like Google Maps or Mapbox)
+function initializeAutocomplete() {
+    // Only initialize Google Places autocomplete if Google Maps is available
+    if (!window.useGoogleMaps || typeof google === 'undefined') {
+        console.log('Google Places autocomplete not available, using manual search');
+        return;
+    }
+    
+    // Initialize autocomplete for pickup location
+    autocompletePickup = new google.maps.places.Autocomplete(
+        document.getElementById('pickup_location'),
+        {
+            componentRestrictions: { country: 'NG' },
+            fields: ['place_id', 'geometry', 'name', 'formatted_address'],
+            types: ['establishment', 'geocode']
+        }
+    );
+
+    // Initialize autocomplete for dropoff location
+    autocompleteDropoff = new google.maps.places.Autocomplete(
+        document.getElementById('dropoff_location'),
+        {
+            componentRestrictions: { country: 'NG' },
+            fields: ['place_id', 'geometry', 'name', 'formatted_address'],
+            types: ['establishment', 'geocode']
+        }
+    );
+
+    // Add listeners for place selection
+    autocompletePickup.addListener('place_changed', function() {
+        const place = autocompletePickup.getPlace();
+        if (place.geometry) {
+            document.getElementById('pickup_latitude').value = place.geometry.location.lat();
+            document.getElementById('pickup_longitude').value = place.geometry.location.lng();
+            updateMap();
+        }
+    });
+
+    autocompleteDropoff.addListener('place_changed', function() {
+        const place = autocompleteDropoff.getPlace();
+        if (place.geometry) {
+            document.getElementById('dropoff_latitude').value = place.geometry.location.lat();
+            document.getElementById('dropoff_longitude').value = place.geometry.location.lng();
+            updateMap();
+        }
+    });
+}
+
+function updateFareEstimate(distanceInMeters, durationInSeconds) {
+    // Nigerian Naira fare calculation
+    const basefare = 500; // ₦500 base fare
+    const perKmRate = 150; // ₦150 per kilometer
+    const perMinuteRate = 25; // ₦25 per minute
+    
+    const distanceInKm = distanceInMeters / 1000;
+    const durationInMinutes = durationInSeconds / 60;
+    
+    const distanceFare = distanceInKm * perKmRate;
+    const timeFare = durationInMinutes * perMinuteRate;
+    const totalFare = Math.round(basefare + distanceFare + timeFare);
+    
+    // Display route information
+    const routeInfo = document.createElement('div');
+    routeInfo.className = 'alert alert-info mt-3';
+    routeInfo.innerHTML = `
+        <h6><i class="fas fa-route me-2"></i>Route Information</h6>
+        <div class="row">
+            <div class="col-sm-4">
+                <strong>Distance:</strong> ${(distanceInKm).toFixed(1)} km
+            </div>
+            <div class="col-sm-4">
+                <strong>Duration:</strong> ${Math.round(durationInMinutes)} min
+            </div>
+            <div class="col-sm-4">
+                <strong>Estimated Fare:</strong> ₦${totalFare.toLocaleString()}
+            </div>
+        </div>
+    `;
+    
+    // Remove existing route info and add new one
+    const existingRouteInfo = document.querySelector('.alert-info');
+    if (existingRouteInfo) {
+        existingRouteInfo.remove();
+    }
+    
+    const mapContainer = document.querySelector('.map-container');
+    mapContainer.appendChild(routeInfo);
+}
+
+function updateFareEstimateFromDistance(distanceInKm) {
+    // Nigerian Naira fare calculation based on straight-line distance
+    const basefare = 500; // ₦500 base fare
+    const perKmRate = 150; // ₦150 per kilometer
+    const estimatedDurationMinutes = Math.round(distanceInKm * 3); // Rough estimate: 3 minutes per km
+    const perMinuteRate = 25; // ₦25 per minute
+    
+    const distanceFare = distanceInKm * perKmRate;
+    const timeFare = estimatedDurationMinutes * perMinuteRate;
+    const totalFare = Math.round(basefare + distanceFare + timeFare);
+    
+    // Display route information
+    const routeInfo = document.createElement('div');
+    routeInfo.className = 'alert alert-info mt-3';
+    routeInfo.innerHTML = `
+        <h6><i class="fas fa-route me-2"></i>Route Information (Estimated)</h6>
+        <div class="row">
+            <div class="col-sm-4">
+                <strong>Distance:</strong> ${distanceInKm.toFixed(1)} km
+            </div>
+            <div class="col-sm-4">
+                <strong>Duration:</strong> ~${estimatedDurationMinutes} min
+            </div>
+            <div class="col-sm-4">
+                <strong>Estimated Fare:</strong> ₦${totalFare.toLocaleString()}
+            </div>
+        </div>
+        <small class="text-muted">
+            <i class="fas fa-info-circle me-1"></i>
+            Estimates based on straight-line distance. Actual route may vary.
+        </small>
+    `;
+    
+    // Remove existing route info and add new one
+    const existingRouteInfo = document.querySelector('.alert-info');
+    if (existingRouteInfo) {
+        existingRouteInfo.remove();
+    }
+    
+    const mapContainer = document.querySelector('.map-container');
+    mapContainer.appendChild(routeInfo);
+}
+
+// Geocoding function with Google Maps and fallback
 function geocodeAddress(address) {
     return new Promise((resolve, reject) => {
-        // This is a mock implementation for Nigerian locations
-        // In a real app, you would use a service like:
-        // - Google Maps Geocoding API
-        // - Mapbox Geocoding API
-        // - OpenStreetMap Nominatim
-        
-        setTimeout(() => {
-            // Nigerian cities and locations
-            const mockLocations = {
-                'lagos': { latitude: 6.5244, longitude: 3.3792 },
-                'ikeja': { latitude: 6.6018, longitude: 3.3515 },
-                'victoria island': { latitude: 6.4281, longitude: 3.4219 },
-                'ikoyi': { latitude: 6.4474, longitude: 3.4323 },
-                'surulere': { latitude: 6.4969, longitude: 3.3654 },
-                'yaba': { latitude: 6.5158, longitude: 3.3707 },
-                'lekki': { latitude: 6.4698, longitude: 3.5852 },
-                'ajah': { latitude: 6.4698, longitude: 3.6043 },
-                'maryland': { latitude: 6.5568, longitude: 3.3724 },
-                'gbagada': { latitude: 6.5568, longitude: 3.3835 },
-                'abuja': { latitude: 9.0765, longitude: 7.3986 },
-                'kano': { latitude: 12.0022, longitude: 8.5920 },
-                'port harcourt': { latitude: 4.8156, longitude: 7.0498 },
-                'ibadan': { latitude: 7.3775, longitude: 3.9470 }
-            };
+        // Try Google Maps geocoding first if available
+        if (window.useGoogleMaps && typeof google !== 'undefined' && google.maps) {
+            const geocoder = new google.maps.Geocoder();
             
-            const searchLower = address.toLowerCase();
-            for (const [key, coords] of Object.entries(mockLocations)) {
-                if (searchLower.includes(key)) {
+            geocoder.geocode({
+                address: address,
+                componentRestrictions: { country: 'NG' },
+                region: 'NG'
+            }, (results, status) => {
+                if (status === 'OK' && results[0]) {
+                    const location = results[0].geometry.location;
                     resolve({
-                        latitude: coords.latitude + (Math.random() - 0.5) * 0.001, // Small randomization
-                        longitude: coords.longitude + (Math.random() - 0.5) * 0.001
+                        latitude: location.lat(),
+                        longitude: location.lng(),
+                        formatted_address: results[0].formatted_address
                     });
-                    return;
+                } else {
+                    console.log('Google geocoding failed, using fallback');
+                    resolveFallbackLocation(address, resolve);
                 }
-            }
-            
-            // Default to Lagos area with some randomization if location not found
-            resolve({
-                latitude: 6.5244 + (Math.random() - 0.5) * 0.05,
-                longitude: 3.3792 + (Math.random() - 0.5) * 0.05
             });
-        }, 1000);
+        } else {
+            // Use fallback geocoding
+            resolveFallbackLocation(address, resolve);
+        }
     });
+}
+
+function resolveFallbackLocation(address, resolve) {
+    // Fallback to Nigerian locations database
+    const fallbackLocations = {
+        'lagos': { latitude: 6.5244, longitude: 3.3792 },
+        'ikeja': { latitude: 6.6018, longitude: 3.3515 },
+        'victoria island': { latitude: 6.4281, longitude: 3.4219 },
+        'ikoyi': { latitude: 6.4474, longitude: 3.4323 },
+        'surulere': { latitude: 6.4969, longitude: 3.3654 },
+        'yaba': { latitude: 6.5158, longitude: 3.3707 },
+        'lekki': { latitude: 6.4698, longitude: 3.5852 },
+        'ajah': { latitude: 6.4698, longitude: 3.6043 },
+        'maryland': { latitude: 6.5568, longitude: 3.3724 },
+        'gbagada': { latitude: 6.5568, longitude: 3.3835 },
+        'abuja': { latitude: 9.0765, longitude: 7.3986 },
+        'kano': { latitude: 12.0022, longitude: 8.5920 },
+        'port harcourt': { latitude: 4.8156, longitude: 7.0498 },
+        'ibadan': { latitude: 7.3775, longitude: 3.9470 }
+    };
+    
+    const searchLower = address.toLowerCase();
+    for (const [key, coords] of Object.entries(fallbackLocations)) {
+        if (searchLower.includes(key)) {
+            resolve({
+                latitude: coords.latitude + (Math.random() - 0.5) * 0.001,
+                longitude: coords.longitude + (Math.random() - 0.5) * 0.001,
+                formatted_address: address
+            });
+            return;
+        }
+    }
+    
+    // Default to Lagos if nothing matches
+    resolve({
+        latitude: 6.5244 + (Math.random() - 0.5) * 0.05,
+        longitude: 3.3792 + (Math.random() - 0.5) * 0.05,
+        formatted_address: address
+    });
+}
+
+// Helper function to calculate distance between two coordinates (Haversine formula)
+function calculateDistance(lat1, lng1, lat2, lng2) {
+    const R = 6371; // Radius of the Earth in kilometers
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Distance in kilometers
 }
 </script>
 {% endblock %}
