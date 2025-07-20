@@ -41,18 +41,45 @@
     }
     
     function checkLeafletAndInit() {
-        if (typeof L !== 'undefined') {
+        // Add timeout to prevent infinite waiting
+        if (!window.leafletInitAttempts) {
+            window.leafletInitAttempts = 0;
+        }
+        window.leafletInitAttempts++;
+        
+        if (window.leafletInitAttempts > 50) { // 5 seconds max wait
+            console.error('Timeout waiting for Leaflet libraries');
+            // Try to initialize without routing if available
+            if (typeof L !== 'undefined') {
+                console.log('Initializing Leaflet without routing...');
+                initFallbackMapSimple();
+            } else {
+                console.error('Leaflet completely unavailable, showing error');
+                showMapError();
+            }
+            return;
+        }
+        
+        if (typeof L !== 'undefined' && typeof L.Routing !== 'undefined') {
+            console.log('Leaflet and routing library loaded, initializing map...');
             initFallbackMap();
+        } else if (typeof L !== 'undefined') {
+            console.log('Leaflet loaded but routing library still loading...');
+            setTimeout(checkLeafletAndInit, 100);
         } else {
-            // Wait a bit more for Leaflet to load
+            console.log('Waiting for Leaflet to load...');
             setTimeout(checkLeafletAndInit, 100);
         }
     }
 </script>
-<!-- Leaflet CSS for fallback map -->
+<!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<!-- Leaflet JS for fallback map -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" onload="console.log('Leaflet loaded successfully')"></script>
+<!-- Leaflet Routing Machine CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" onload="console.log('Leaflet core loaded successfully')"></script>
+<!-- Leaflet Routing Machine JS -->
+<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js" onload="console.log('Leaflet routing loaded successfully')"></script>
 <style>
     #map {
         width: 100%;
@@ -60,6 +87,33 @@
     }
     .gm-style-iw {
         color: #333;
+    }
+    .suggestions-dropdown {
+        border-color: #dee2e6 !important;
+    }
+    .suggestion-item {
+        padding: 12px 16px;
+        cursor: pointer;
+        border-bottom: 1px solid #f8f9fa;
+        transition: background-color 0.2s ease;
+    }
+    .suggestion-item:last-child {
+        border-bottom: none;
+    }
+    .suggestion-item:hover {
+        background-color: #f8f9fa;
+    }
+    .suggestion-item.active {
+        background-color: #e3f2fd;
+    }
+    .suggestion-main {
+        font-weight: 500;
+        color: #212529;
+    }
+    .suggestion-sub {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-top: 2px;
     }
 </style>
 {% endblock %}
@@ -117,15 +171,20 @@
                             <label for="pickup_location" class="form-label fw-bold">
                                 <i class="fas fa-map-marker-alt text-success me-2"></i>Pickup Location *
                             </label>
-                            <div class="input-group">
+                            <div class="input-group position-relative">
                                 <input type="text" class="form-control" id="pickup_location" name="pickup_location" 
-                                       placeholder="Enter pickup address (e.g., 123 Ikeja Road, Lagos)" required>
+                                       placeholder="Enter pickup address (e.g., 123 Ikeja Road, Lagos)" required
+                                       autocomplete="off">
                                 <button class="btn btn-outline-secondary" type="button" onclick="getCurrentLocation('pickup')" title="Use current location">
                                     <i class="fas fa-crosshairs"></i>
                                 </button>
                                 <button class="btn btn-outline-primary" type="button" onclick="searchLocation('pickup')" title="Search location">
                                     <i class="fas fa-search"></i>
                                 </button>
+                                <!-- Suggestions dropdown -->
+                                <div id="pickup-suggestions" class="suggestions-dropdown position-absolute w-100 bg-white border rounded shadow-sm d-none" style="top: 100%; z-index: 1000; max-height: 200px; overflow-y: auto;">
+                                    <!-- Suggestions will be populated here -->
+                                </div>
                             </div>
                             <input type="hidden" id="pickup_latitude" name="pickup_latitude">
                             <input type="hidden" id="pickup_longitude" name="pickup_longitude">
@@ -137,12 +196,17 @@
                             <label for="dropoff_location" class="form-label fw-bold">
                                 <i class="fas fa-flag text-danger me-2"></i>Dropoff Location *
                             </label>
-                            <div class="input-group">
+                            <div class="input-group position-relative">
                                 <input type="text" class="form-control" id="dropoff_location" name="dropoff_location" 
-                                       placeholder="Enter destination address (e.g., 456 Victoria Island, Lagos)" required>
+                                       placeholder="Enter destination address (e.g., 456 Victoria Island, Lagos)" required
+                                       autocomplete="off">
                                 <button class="btn btn-outline-primary" type="button" onclick="searchLocation('dropoff')" title="Search location">
                                     <i class="fas fa-search"></i>
                                 </button>
+                                <!-- Suggestions dropdown -->
+                                <div id="dropoff-suggestions" class="suggestions-dropdown position-absolute w-100 bg-white border rounded shadow-sm d-none" style="top: 100%; z-index: 1000; max-height: 200px; overflow-y: auto;">
+                                    <!-- Suggestions will be populated here -->
+                                </div>
                             </div>
                             <input type="hidden" id="dropoff_latitude" name="dropoff_latitude">
                             <input type="hidden" id="dropoff_longitude" name="dropoff_longitude">
@@ -445,11 +509,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Set up form submission
     document.getElementById('ride-request-form').addEventListener('submit', handleRideRequest);
     
-    // Set up location change listeners
-    document.getElementById('pickup_location').addEventListener('input', debounce(handleLocationInput, 500));
-    document.getElementById('dropoff_location').addEventListener('input', debounce(handleLocationInput, 500));
-    document.getElementById('pickup_location').addEventListener('blur', updateEstimates);
-    document.getElementById('dropoff_location').addEventListener('blur', updateEstimates);
+    // Set up location change listeners with suggestions
+    setupLocationSuggestions('pickup');
+    setupLocationSuggestions('dropoff');
     
     // Set up ride type radio button listeners
     document.getElementById('immediate').addEventListener('change', handleRideTypeChange);
@@ -460,13 +522,26 @@ document.addEventListener('DOMContentLoaded', function() {
     now.setMinutes(now.getMinutes() + 30);
     document.getElementById('scheduled_pickup_time').min = now.toISOString().slice(0, 16);
     
-    // Initialize map
-    if (typeof google !== 'undefined') {
-        // Google Maps will be initialized via callback
-        console.log('Google Maps API loaded');
+    // Initialize map based on available technology
+    if (window.useGoogleMaps && typeof google !== 'undefined') {
+        console.log('Google Maps API loaded, will initialize via callback');
     } else {
-        console.log('Google Maps API not loaded yet');
+        console.log('Using Leaflet fallback map');
+        // Force initialization of Leaflet map after a small delay to ensure DOM is ready
+        setTimeout(() => {
+            if (!map) {
+                initFallbackMap();
+            }
+        }, 100);
     }
+
+    // Close suggestions when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.input-group')) {
+            hideSuggestions('pickup');
+            hideSuggestions('dropoff');
+        }
+    });
 });
 
 async function handleRideRequest(e) {
@@ -853,10 +928,74 @@ function initMap() {
     }
 }
 
+function initFallbackMapSimple() {
+    try {
+        // Initialize basic Leaflet map without routing
+        map = L.map('map').setView([6.5244, 3.3792], 12);
+        
+        // Add tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(map);
+        
+        // Initialize global variables for Leaflet
+        window.leafletControl = null;
+        window.leafletMarkers = [];
+        
+        // Hide placeholder when map is ready
+        document.getElementById('map-placeholder').style.display = 'none';
+        document.getElementById('map').style.display = 'block';
+        
+        console.log('Basic Leaflet map initialized successfully (without routing)');
+        
+    } catch (error) {
+        console.error('Error initializing basic fallback map:', error);
+        showMapError();
+    }
+}
+
+function showMapError() {
+    const placeholder = document.getElementById('map-placeholder');
+    if (placeholder) {
+        placeholder.innerHTML = `
+            <div class="text-center p-4">
+                <i class="fas fa-exclamation-triangle display-4 mb-3 text-warning"></i>
+                <p class="text-muted">Map temporarily unavailable</p>
+                <small class="text-muted">You can still request rides - route information will be calculated</small>
+                <button class="btn btn-sm btn-outline-primary mt-2" onclick="retryMapInit()">
+                    <i class="fas fa-redo me-1"></i>Retry
+                </button>
+            </div>
+        `;
+        placeholder.style.display = 'flex';
+        placeholder.style.alignItems = 'center';
+        placeholder.style.justifyContent = 'center';
+    }
+}
+
+function retryMapInit() {
+    console.log('Retrying map initialization...');
+    window.leafletInitAttempts = 0;
+    document.getElementById('map-placeholder').innerHTML = `
+        <div class="text-center">
+            <i class="fas fa-spinner fa-spin display-4 mb-3 text-primary"></i>
+            <p class="text-muted">Loading map...</p>
+        </div>
+    `;
+    checkLeafletAndInit();
+}
+
 function initFallbackMap() {
-    // Wait for Leaflet to be available
+    // Wait for Leaflet and routing to be available
     if (typeof L === 'undefined') {
         console.log('Waiting for Leaflet to load...');
+        setTimeout(initFallbackMap, 100);
+        return;
+    }
+    
+    if (typeof L.Routing === 'undefined') {
+        console.log('Waiting for Leaflet Routing Machine to load...');
         setTimeout(initFallbackMap, 100);
         return;
     }
@@ -867,8 +1006,13 @@ function initFallbackMap() {
         
         // Add tile layer
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
         }).addTo(map);
+        
+        // Initialize global variables for Leaflet
+        window.leafletControl = null;
+        window.leafletMarkers = [];
         
         // Hide placeholder when map is ready
         document.getElementById('map-placeholder').style.display = 'none';
@@ -890,6 +1034,66 @@ function initFallbackMap() {
     }
 }
 
+function initFallbackMapSimple() {
+    try {
+        // Initialize basic Leaflet map without routing
+        map = L.map('map').setView([6.5244, 3.3792], 12);
+        
+        // Add tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(map);
+        
+        // Initialize global variables for Leaflet
+        window.leafletControl = null;
+        window.leafletMarkers = [];
+        
+        // Hide placeholder when map is ready
+        document.getElementById('map-placeholder').style.display = 'none';
+        document.getElementById('map').style.display = 'block';
+        
+        console.log('Basic Leaflet map initialized successfully (without routing)');
+        
+    } catch (error) {
+        console.error('Error initializing basic fallback map:', error);
+        showMapError();
+    }
+}
+
+function showMapError() {
+    const placeholder = document.getElementById('map-placeholder');
+    if (placeholder) {
+        placeholder.innerHTML = `
+            <div class="text-center p-4">
+                <i class="fas fa-exclamation-triangle display-4 mb-3 text-warning"></i>
+                <p class="text-muted">Map temporarily unavailable</p>
+                <small class="text-muted">You can still request rides - route information will be calculated</small>
+                <button class="btn btn-sm btn-outline-primary mt-2" onclick="retryMapInit()">
+                    <i class="fas fa-redo me-1"></i>Retry
+                </button>
+            </div>
+        `;
+        placeholder.style.display = 'flex';
+        placeholder.style.alignItems = 'center';
+        placeholder.style.justifyContent = 'center';
+    }
+}
+
+function retryMapInit() {
+    console.log('Retrying map initialization...');
+    window.leafletInitAttempts = 0;
+    document.getElementById('map-placeholder').innerHTML = `
+        <div class="text-center">
+            <i class="fas fa-spinner fa-spin display-4 mb-3 text-primary"></i>
+            <p class="text-muted">Loading map...</p>
+        </div>
+    `;
+    checkLeafletAndInit();
+}
+
+// ...existing code...
+
 function updateMap() {
     if (!map) {
         console.log('Map not initialized, trying to initialize...');
@@ -898,6 +1102,12 @@ function updateMap() {
         } else {
             initFallbackMap();
         }
+        // Wait for map to initialize then update
+        setTimeout(() => {
+            if (map) {
+                updateMap();
+            }
+        }, 500);
         return;
     }
     
@@ -1040,33 +1250,48 @@ function updateLeafletMap(pickupLat, pickupLng, dropoffLat, dropoffLng) {
         return;
     }
     
-    // Clear existing markers and route
-    if (pickupMarker) {
-        map.removeLayer(pickupMarker);
-        pickupMarker = null;
-    }
-    if (dropoffMarker) {
-        map.removeLayer(dropoffMarker);
-        dropoffMarker = null;
-    }
-    if (window.routeLine) {
-        map.removeLayer(window.routeLine);
-        window.routeLine = null;
+    // Clear existing markers and routing control
+    if (window.leafletMarkers && window.leafletMarkers.length > 0) {
+        window.leafletMarkers.forEach(marker => {
+            map.removeLayer(marker);
+        });
+        window.leafletMarkers = [];
     }
     
-    const markers = [];
+    if (window.leafletControl) {
+        map.removeControl(window.leafletControl);
+        window.leafletControl = null;
+    }
+    
+    if (window.leafletRouteLine) {
+        map.removeLayer(window.leafletRouteLine);
+        window.leafletRouteLine = null;
+    }
+    
+    const validPickup = pickupLat && pickupLng && !isNaN(pickupLat) && !isNaN(pickupLng);
+    const validDropoff = dropoffLat && dropoffLng && !isNaN(dropoffLat) && !isNaN(dropoffLng);
     
     // Add pickup marker
-    if (pickupLat && pickupLng && !isNaN(pickupLat) && !isNaN(pickupLng)) {
-        pickupMarker = L.marker([pickupLat, pickupLng]).addTo(map);
+    if (validPickup) {
+        const pickupMarker = L.marker([pickupLat, pickupLng], {
+            icon: L.icon({
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                shadowSize: [41, 41]
+            })
+        }).addTo(map);
+        
         pickupMarker.bindPopup('<strong>Pickup Location</strong><br>' + document.getElementById('pickup_location').value);
-        markers.push([pickupLat, pickupLng]);
+        window.leafletMarkers.push(pickupMarker);
         console.log('Added pickup marker at:', pickupLat, pickupLng);
     }
     
     // Add dropoff marker
-    if (dropoffLat && dropoffLng && !isNaN(dropoffLat) && !isNaN(dropoffLng)) {
-        dropoffMarker = L.marker([dropoffLat, dropoffLng], {
+    if (validDropoff) {
+        const dropoffMarker = L.marker([dropoffLat, dropoffLng], {
             icon: L.icon({
                 iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
                 shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
@@ -1076,171 +1301,120 @@ function updateLeafletMap(pickupLat, pickupLng, dropoffLat, dropoffLng) {
                 shadowSize: [41, 41]
             })
         }).addTo(map);
+        
         dropoffMarker.bindPopup('<strong>Dropoff Location</strong><br>' + document.getElementById('dropoff_location').value);
-        markers.push([dropoffLat, dropoffLng]);
+        window.leafletMarkers.push(dropoffMarker);
         console.log('Added dropoff marker at:', dropoffLat, dropoffLng);
     }
     
-    // Draw route line if both points exist
-    if (markers.length === 2) {
-        window.routeLine = L.polyline(markers, {
-            color: '#007bff',
-            weight: 4,
-            opacity: 0.7
-        }).addTo(map);
-        
-        // Fit map to show both markers with padding
-        map.fitBounds(markers, { padding: [20, 20] });
-        console.log('Added route line and fitted bounds');
-        
-        // Calculate distance and update fare
-        const distance = calculateDistance(pickupLat, pickupLng, dropoffLat, dropoffLng);
-        updateFareEstimateFromDistance(distance);
-    } else if (markers.length === 1) {
-        // Center on single marker
-        map.setView(markers[0], 15);
-        console.log('Centered on single marker');
+    // Create route if both points exist and routing is available
+    if (validPickup && validDropoff && typeof L.Routing !== 'undefined') {
+        try {
+            window.leafletControl = L.Routing.control({
+                waypoints: [
+                    L.latLng(pickupLat, pickupLng),
+                    L.latLng(dropoffLat, dropoffLng)
+                ],
+                routeWhileDragging: false,
+                addWaypoints: false,
+                createMarker: function() { return null; }, // Don't create default markers
+                lineOptions: {
+                    styles: [{ color: '#007bff', weight: 4, opacity: 0.7 }]
+                }
+            }).on('routesfound', function(e) {
+                const routes = e.routes;
+                const summary = routes[0].summary;
+                
+                // Distance in meters, duration in seconds
+                const distanceKm = summary.totalDistance / 1000;
+                const durationMin = Math.round(summary.totalTime / 60);
+                
+                console.log(`Leaflet route found: ${distanceKm.toFixed(1)} km, ${durationMin} min`);
+                
+                // Update fare estimate
+                updateFareEstimate(summary.totalDistance, summary.totalTime);
+                
+            }).addTo(map);
+            
+            console.log('Leaflet routing control added successfully');
+            
+        } catch (error) {
+            console.error('Error creating Leaflet route:', error);
+            // Fall back to simple line if routing fails
+            addSimpleRouteLine(pickupLat, pickupLng, dropoffLat, dropoffLng);
+        }
+    } else if (validPickup && validDropoff) {
+        // Routing not available, use simple line
+        console.log('Routing library not available, using simple line');
+        addSimpleRouteLine(pickupLat, pickupLng, dropoffLat, dropoffLng);
+    } else if (window.leafletMarkers.length > 0) {
+        // Fit map to show available markers
+        if (window.leafletMarkers.length === 1) {
+            map.setView(window.leafletMarkers[0].getLatLng(), 15);
+        } else {
+            const group = new L.featureGroup(window.leafletMarkers);
+            map.fitBounds(group.getBounds().pad(0.1));
+        }
+        console.log('Centered map on available markers');
     }
 }
 
-function initializeAutocomplete() {
-    // Only initialize Google Places autocomplete if Google Maps is available
-    if (!window.useGoogleMaps || typeof google === 'undefined') {
-        console.log('Google Places autocomplete not available, using manual search');
-        return;
-    }
+function addSimpleRouteLine(pickupLat, pickupLng, dropoffLat, dropoffLng) {
+    // Add simple straight line route
+    const routeLine = L.polyline([[pickupLat, pickupLng], [dropoffLat, dropoffLng]], {
+        color: '#007bff',
+        weight: 4,
+        opacity: 0.7,
+        dashArray: '10, 5' // Dashed line to indicate it's not a real route
+    }).addTo(map);
     
-    // Initialize autocomplete for pickup location
-    autocompletePickup = new google.maps.places.Autocomplete(
-        document.getElementById('pickup_location'),
-        {
-            componentRestrictions: { country: 'NG' },
-            fields: ['place_id', 'geometry', 'name', 'formatted_address'],
-            types: ['establishment', 'geocode']
-        }
-    );
-
-    // Initialize autocomplete for dropoff location
-    autocompleteDropoff = new google.maps.places.Autocomplete(
-        document.getElementById('dropoff_location'),
-        {
-            componentRestrictions: { country: 'NG' },
-            fields: ['place_id', 'geometry', 'name', 'formatted_address'],
-            types: ['establishment', 'geocode']
-        }
-    );
-
-    // Add listeners for place selection
-    autocompletePickup.addListener('place_changed', function() {
-        const place = autocompletePickup.getPlace();
-        if (place.geometry) {
-            document.getElementById('pickup_latitude').value = place.geometry.location.lat();
-            document.getElementById('pickup_longitude').value = place.geometry.location.lng();
-            updateMap();
-        }
-    });
-
-    autocompleteDropoff.addListener('place_changed', function() {
-        const place = autocompleteDropoff.getPlace();
-        if (place.geometry) {
-            document.getElementById('dropoff_latitude').value = place.geometry.location.lat();
-            document.getElementById('dropoff_longitude').value = place.geometry.location.lng();
-            updateMap();
-        }
-    });
+    // Store reference for cleanup
+    window.leafletRouteLine = routeLine;
+    
+    // Fit map to show both markers with padding
+    const group = new L.featureGroup(window.leafletMarkers);
+    map.fitBounds(group.getBounds().pad(0.1));
+    
+    // Calculate distance and update fare
+    const distance = calculateDistance(pickupLat, pickupLng, dropoffLat, dropoffLng);
+    updateFareEstimateFromDistance(distance);
+    
+    console.log('Added simple route line (no real routing available)');
 }
 
-function updateFareEstimate(distanceInMeters, durationInSeconds) {
-    // Nigerian Naira fare calculation
-    const basefare = 500; // ₦500 base fare
-    const perKmRate = 150; // ₦150 per kilometer
-    const perMinuteRate = 25; // ₦25 per minute
+function addSimpleRouteLine(pickupLat, pickupLng, dropoffLat, dropoffLng) {
+    // Add simple straight line route
+    const routeLine = L.polyline([[pickupLat, pickupLng], [dropoffLat, dropoffLng]], {
+        color: '#007bff',
+        weight: 4,
+        opacity: 0.7,
+        dashArray: '10, 5' // Dashed line to indicate it's not a real route
+    }).addTo(map);
     
-    const distanceInKm = distanceInMeters / 1000;
-    const durationInMinutes = durationInSeconds / 60;
+    // Store reference for cleanup
+    window.leafletRouteLine = routeLine;
     
-    const distanceFare = distanceInKm * perKmRate;
-    const timeFare = durationInMinutes * perMinuteRate;
-    const totalFare = Math.round(basefare + distanceFare + timeFare);
+    // Fit map to show both markers with padding
+    const group = new L.featureGroup(window.leafletMarkers);
+    map.fitBounds(group.getBounds().pad(0.1));
     
-    // Display route information
-    const routeInfo = document.createElement('div');
-    routeInfo.className = 'alert alert-info mt-3';
-    routeInfo.innerHTML = `
-        <h6><i class="fas fa-route me-2"></i>Route Information</h6>
-        <div class="row">
-            <div class="col-sm-4">
-                <strong>Distance:</strong> ${(distanceInKm).toFixed(1)} km
-            </div>
-            <div class="col-sm-4">
-                <strong>Duration:</strong> ${Math.round(durationInMinutes)} min
-            </div>
-            <div class="col-sm-4">
-                <strong>Estimated Fare:</strong> ₦${totalFare.toLocaleString()}
-            </div>
-        </div>
-    `;
+    // Calculate distance and update fare
+    const distance = calculateDistance(pickupLat, pickupLng, dropoffLat, dropoffLng);
+    updateFareEstimateFromDistance(distance);
     
-    // Remove existing route info and add new one
-    const existingRouteInfo = document.querySelector('.alert-info');
-    if (existingRouteInfo) {
-        existingRouteInfo.remove();
-    }
-    
-    const mapContainer = document.querySelector('.map-container');
-    mapContainer.appendChild(routeInfo);
+    console.log('Added simple route line (no real routing available)');
 }
 
-function updateFareEstimateFromDistance(distanceInKm) {
-    // Nigerian Naira fare calculation based on straight-line distance
-    const basefare = 500; // ₦500 base fare
-    const perKmRate = 150; // ₦150 per kilometer
-    const estimatedDurationMinutes = Math.round(distanceInKm * 3); // Rough estimate: 3 minutes per km
-    const perMinuteRate = 25; // ₦25 per minute
-    
-    const distanceFare = distanceInKm * perKmRate;
-    const timeFare = estimatedDurationMinutes * perMinuteRate;
-    const totalFare = Math.round(basefare + distanceFare + timeFare);
-    
-    // Display route information
-    const routeInfo = document.createElement('div');
-    routeInfo.className = 'alert alert-info mt-3';
-    routeInfo.innerHTML = `
-        <h6><i class="fas fa-route me-2"></i>Route Information (Estimated)</h6>
-        <div class="row">
-            <div class="col-sm-4">
-                <strong>Distance:</strong> ${distanceInKm.toFixed(1)} km
-            </div>
-            <div class="col-sm-4">
-                <strong>Duration:</strong> ~${estimatedDurationMinutes} min
-            </div>
-            <div class="col-sm-4">
-                <strong>Estimated Fare:</strong> ₦${totalFare.toLocaleString()}
-            </div>
-        </div>
-        <small class="text-muted">
-            <i class="fas fa-info-circle me-1"></i>
-            Estimates based on straight-line distance. Actual route may vary.
-        </small>
-    `;
-    
-    // Remove existing route info and add new one
-    const existingRouteInfo = document.querySelector('.alert-info');
-    if (existingRouteInfo) {
-        existingRouteInfo.remove();
-    }
-    
-    const mapContainer = document.querySelector('.map-container');
-    mapContainer.appendChild(routeInfo);
-}
-
-// Geocoding function with Google Maps and fallback
+// Helper function to resolve address to coordinates using Google Geocoding API or fallback
 function geocodeAddress(address) {
     return new Promise((resolve, reject) => {
-        // Try Google Maps geocoding first if available
-        if (window.useGoogleMaps && typeof google !== 'undefined' && google.maps) {
+        if (!address) {
+            return reject(new Error('Address is required for geocoding'));
+        }
+        
+        // First, try to use the Google Geocoding API
+        if (window.useGoogleMaps && typeof google !== 'undefined') {
             const geocoder = new google.maps.Geocoder();
-            
             geocoder.geocode({
                 address: address,
                 componentRestrictions: { country: 'NG' },
@@ -1314,6 +1488,284 @@ function calculateDistance(lat1, lng1, lat2, lng2) {
               Math.sin(dLng / 2) * Math.sin(dLng / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c; // Distance in kilometers
+}
+
+// Utility functions
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func.apply(this, args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+function formatCoordinate(coord) {
+    return parseFloat(coord).toFixed(6);
+}
+
+function showAlert(message, type = 'success', duration = 3000) {
+    // Create alert element
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    alert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alert.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alert);
+    
+    // Auto remove after duration
+    if (duration > 0) {
+        setTimeout(() => {
+            if (alert.parentNode) {
+                alert.remove();
+            }
+        }, duration);
+    }
+}
+
+function formatCoordinate(coord) {
+    return parseFloat(coord).toFixed(6);
+}
+
+function showAlert(message, type = 'success', duration = 3000) {
+    // Create alert element
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    alert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alert.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alert);
+    
+    // Auto remove after duration
+    if (duration > 0) {
+        setTimeout(() => {
+            if (alert.parentNode) {
+                alert.remove();
+            }
+        }, duration);
+    }
+}
+
+// Nigerian locations database for suggestions
+const nigerianLocations = [
+    // Lagos State
+    { name: 'Ikeja', state: 'Lagos', fullName: 'Ikeja, Lagos State', coords: { latitude: 6.6018, longitude: 3.3515 }},
+    { name: 'Victoria Island', state: 'Lagos', fullName: 'Victoria Island, Lagos State', coords: { latitude: 6.4281, longitude: 3.4219 }},
+    { name: 'Ikoyi', state: 'Lagos', fullName: 'Ikoyi, Lagos State', coords: { latitude: 6.4474, longitude: 3.4323 }},
+    { name: 'Surulere', state: 'Lagos', fullName: 'Surulere, Lagos State', coords: { latitude: 6.4969, longitude: 3.3654 }},
+    { name: 'Yaba', state: 'Lagos', fullName: 'Yaba, Lagos State', coords: { latitude: 6.5158, longitude: 3.3707 }},
+    { name: 'Lekki', state: 'Lagos', fullName: 'Lekki, Lagos State', coords: { latitude: 6.4698, longitude: 3.5852 }},
+    { name: 'Ajah', state: 'Lagos', fullName: 'Ajah, Lagos State', coords: { latitude: 6.4698, longitude: 3.6043 }},
+    { name: 'Maryland', state: 'Lagos', fullName: 'Maryland, Lagos State', coords: { latitude: 6.5568, longitude: 3.3724 }},
+    { name: 'Gbagada', state: 'Lagos', fullName: 'Gbagada, Lagos State', coords: { latitude: 6.5568, longitude: 3.3835 }},
+    { name: 'Magodo', state: 'Lagos', fullName: 'Magodo, Lagos State', coords: { latitude: 6.6017, longitude: 3.3799 }},
+    { name: 'Oregun', state: 'Lagos', fullName: 'Oregun, Lagos State', coords: { latitude: 6.5568, longitude: 3.3724 }},
+    { name: 'Apapa', state: 'Lagos', fullName: 'Apapa, Lagos State', coords: { latitude: 6.4474, longitude: 3.3594 }},
+    { name: 'Lagos Island', state: 'Lagos', fullName: 'Lagos Island, Lagos State', coords: { latitude: 6.4541, longitude: 3.3947 }},
+    { name: 'Mushin', state: 'Lagos', fullName: 'Mushin, Lagos State', coords: { latitude: 6.5244, longitude: 3.3452 }},
+    { name: 'Oshodi', state: 'Lagos', fullName: 'Oshodi, Lagos State', coords: { latitude: 6.5492, longitude: 3.3348 }},
+    { name: 'Alaba', state: 'Lagos', fullName: 'Alaba, Lagos State', coords: { latitude: 6.4641, longitude: 3.1794 }},
+    { name: 'Isolo', state: 'Lagos', fullName: 'Isolo, Lagos State', coords: { latitude: 6.5244, longitude: 3.3267 }},
+    { name: 'Ketu', state: 'Lagos', fullName: 'Ketu, Lagos State', coords: { latitude: 6.6018, longitude: 3.3903 }},
+    { name: 'Mile 12', state: 'Lagos', fullName: 'Mile 12, Lagos State', coords: { latitude: 6.6267, longitude: 3.3903 }},
+    { name: 'Ojota', state: 'Lagos', fullName: 'Ojota, Lagos State', coords: { latitude: 6.5568, longitude: 3.3903 }},
+    
+    // FCT Abuja
+    { name: 'Wuse', state: 'FCT', fullName: 'Wuse, Abuja FCT', coords: { latitude: 9.0579, longitude: 7.4951 }},
+    { name: 'Garki', state: 'FCT', fullName: 'Garki, Abuja FCT', coords: { latitude: 9.0579, longitude: 7.4951 }},
+    { name: 'Maitama', state: 'FCT', fullName: 'Maitama, Abuja FCT', coords: { latitude: 9.0579, longitude: 7.4951 }},
+    { name: 'Gwarinpa', state: 'FCT', fullName: 'Gwarinpa, Abuja FCT', coords: { latitude: 9.1579, longitude: 7.4951 }},
+    { name: 'Kubwa', state: 'FCT', fullName: 'Kubwa, Abuja FCT', coords: { latitude: 9.1579, longitude: 7.3451 }},
+    { name: 'Nyanya', state: 'FCT', fullName: 'Nyanya, Abuja FCT', coords: { latitude: 8.9579, longitude: 7.4951 }},
+    
+    // Other major cities
+    { name: 'Kano', state: 'Kano', fullName: 'Kano, Kano State', coords: { latitude: 12.0022, longitude: 8.5920 }},
+    { name: 'Port Harcourt', state: 'Rivers', fullName: 'Port Harcourt, Rivers State', coords: { latitude: 4.8156, longitude: 7.0498 }},
+    { name: 'Ibadan', state: 'Oyo', fullName: 'Ibadan, Oyo State', coords: { latitude: 7.3775, longitude: 3.9470 }},
+    { name: 'Benin City', state: 'Edo', fullName: 'Benin City, Edo State', coords: { latitude: 6.3350, longitude: 5.6037 }},
+    { name: 'Enugu', state: 'Enugu', fullName: 'Enugu, Enugu State', coords: { latitude: 6.5244, longitude: 7.5086 }},
+    { name: 'Kaduna', state: 'Kaduna', fullName: 'Kaduna, Kaduna State', coords: { latitude: 10.5222, longitude: 7.4383 }},
+    { name: 'Jos', state: 'Plateau', fullName: 'Jos, Plateau State', coords: { latitude: 9.8965, longitude: 8.8583 }},
+    { name: 'Warri', state: 'Delta', fullName: 'Warri, Delta State', coords: { latitude: 5.5160, longitude: 5.7500 }},
+    { name: 'Calabar', state: 'Cross River', fullName: 'Calabar, Cross River State', coords: { latitude: 4.9517, longitude: 8.3220 }},
+    { name: 'Uyo', state: 'Akwa Ibom', fullName: 'Uyo, Akwa Ibom State', coords: { latitude: 5.0104, longitude: 7.8584 }},
+    { name: 'Osun', state: 'Osun', fullName: 'Osogbo, Osun State', coords: { latitude: 7.7699, longitude: 4.5569 }},
+    { name: 'Abeokuta', state: 'Ogun', fullName: 'Abeokuta, Ogun State', coords: { latitude: 7.1607, longitude: 3.3500 }},
+    { name: 'Ilorin', state: 'Kwara', fullName: 'Ilorin, Kwara State', coords: { latitude: 8.4916, longitude: 4.5481 }},
+    { name: 'Maiduguri', state: 'Borno', fullName: 'Maiduguri, Borno State', coords: { latitude: 11.8451, longitude: 13.1570 }},
+    { name: 'Yola', state: 'Adamawa', fullName: 'Yola, Adamawa State', coords: { latitude: 9.2035, longitude: 12.4852 }},
+    { name: 'Sokoto', state: 'Sokoto', fullName: 'Sokoto, Sokoto State', coords: { latitude: 13.0645, longitude: 5.2483 }},
+    { name: 'Zaria', state: 'Kaduna', fullName: 'Zaria, Kaduna State', coords: { latitude: 11.1111, longitude: 7.7222 }},
+    { name: 'Aba', state: 'Abia', fullName: 'Aba, Abia State', coords: { latitude: 5.1050, longitude: 7.3667 }},
+    { name: 'Onitsha', state: 'Anambra', fullName: 'Onitsha, Anambra State', coords: { latitude: 6.1500, longitude: 6.8000 }},
+    { name: 'Owerri', state: 'Imo', fullName: 'Owerri, Imo State', coords: { latitude: 5.4833, longitude: 7.0333 }}
+];
+
+// Setup location suggestions
+function setupLocationSuggestions(type) {
+    const input = document.getElementById(`${type}_location`);
+    const suggestions = document.getElementById(`${type}-suggestions`);
+    
+    input.addEventListener('input', debounce(function() {
+        const query = input.value.trim();
+        if (query.length >= 2) {
+            showLocationSuggestions(type, query);
+        } else {
+            hideSuggestions(type);
+        }
+    }, 300));
+    
+    input.addEventListener('focus', function() {
+        const query = input.value.trim();
+        if (query.length >= 2) {
+            showLocationSuggestions(type, query);
+        }
+    });
+    
+    input.addEventListener('keydown', function(e) {
+        handleSuggestionNavigation(e, type);
+    });
+}
+
+function showLocationSuggestions(type, query) {
+    const suggestions = document.getElementById(`${type}-suggestions`);
+    const matches = findLocationMatches(query);
+    
+    if (matches.length === 0) {
+        hideSuggestions(type);
+        return;
+    }
+    
+    let html = '';
+    matches.slice(0, 8).forEach((location, index) => {
+        html += `
+            <div class="suggestion-item" data-index="${index}" onclick="selectSuggestion('${type}', ${index})">
+                <div class="suggestion-main">${location.name}</div>
+                <div class="suggestion-sub">${location.fullName}</div>
+            </div>
+        `;
+    });
+    
+    suggestions.innerHTML = html;
+    suggestions.classList.remove('d-none');
+    
+    // Store current matches for keyboard navigation
+    suggestions._currentMatches = matches.slice(0, 8);
+    suggestions._activeIndex = -1;
+}
+
+function hideSuggestions(type) {
+    const suggestions = document.getElementById(`${type}-suggestions`);
+    suggestions.classList.add('d-none');
+    suggestions._activeIndex = -1;
+}
+
+function findLocationMatches(query) {
+    const queryLower = query.toLowerCase();
+    const matches = [];
+    
+    // Find exact matches first
+    nigerianLocations.forEach(location => {
+        if (location.name.toLowerCase().startsWith(queryLower) || 
+            location.fullName.toLowerCase().includes(queryLower)) {
+            matches.push(location);
+        }
+    });
+    
+    // If we need more matches, add partial matches
+    if (matches.length < 8) {
+        nigerianLocations.forEach(location => {
+            if (!matches.includes(location) && 
+                (location.name.toLowerCase().includes(queryLower) || 
+                 location.state.toLowerCase().includes(queryLower))) {
+                matches.push(location);
+            }
+        });
+    }
+    
+    return matches;
+}
+
+function selectSuggestion(type, index) {
+    const suggestions = document.getElementById(`${type}-suggestions`);
+    const matches = suggestions._currentMatches;
+    
+    if (matches && matches[index]) {
+        const location = matches[index];
+        
+        // Set the input value
+        document.getElementById(`${type}_location`).value = location.fullName;
+        
+        // Set coordinates
+        document.getElementById(`${type}_latitude`).value = formatCoordinate(location.coords.latitude);
+        document.getElementById(`${type}_longitude`).value = formatCoordinate(location.coords.longitude);
+        
+        // Hide suggestions
+        hideSuggestions(type);
+        
+        // Update estimates and map
+        updateEstimates();
+        updateMap();
+        
+        showAlert(`Selected: ${location.name}`, 'success', 2000);
+    }
+}
+
+function handleSuggestionNavigation(e, type) {
+    const suggestions = document.getElementById(`${type}-suggestions`);
+    
+    if (suggestions.classList.contains('d-none')) return;
+    
+    const items = suggestions.querySelectorAll('.suggestion-item');
+    if (items.length === 0) return;
+    
+    switch(e.key) {
+        case 'ArrowDown':
+            e.preventDefault();
+            suggestions._activeIndex = Math.min(suggestions._activeIndex + 1, items.length - 1);
+            updateActiveSuggestion(type);
+            break;
+            
+        case 'ArrowUp':
+            e.preventDefault();
+            suggestions._activeIndex = Math.max(suggestions._activeIndex - 1, -1);
+            updateActiveSuggestion(type);
+            break;
+            
+        case 'Enter':
+            e.preventDefault();
+            if (suggestions._activeIndex >= 0) {
+                selectSuggestion(type, suggestions._activeIndex);
+            }
+            break;
+            
+        case 'Escape':
+            hideSuggestions(type);
+            break;
+    }
+}
+
+function updateActiveSuggestion(type) {
+    const suggestions = document.getElementById(`${type}-suggestions`);
+    const items = suggestions.querySelectorAll('.suggestion-item');
+    
+    // Remove active class from all items
+    items.forEach(item => item.classList.remove('active'));
+    
+    // Add active class to current item
+    if (suggestions._activeIndex >= 0 && suggestions._activeIndex < items.length) {
+        items[suggestions._activeIndex].classList.add('active');
+        items[suggestions._activeIndex].scrollIntoView({ block: 'nearest' });
+    }
 }
 </script>
 {% endblock %}
