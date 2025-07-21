@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import CustomUser, DriverProfile
+from .models import CustomUser, DriverProfile, PhoneVerification
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.exceptions import ValidationError
@@ -33,6 +33,34 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = ['email', 'phone_number', 'user_type', 'password', 'confirm_password',
                  'license_number', 'vehicle_make', 'vehicle_model', 'vehicle_year', 
                  'vehicle_color', 'vehicle_plate']
+
+    def validate_phone_number(self, value):
+        """Validate phone number format during registration"""
+        if not value:
+            raise serializers.ValidationError("Phone number is required")
+        
+        if not value.startswith('+'):
+            raise serializers.ValidationError("Phone number must start with country code (e.g., +234)")
+        
+        # Remove + and check if remaining characters are digits
+        digits_only = value[1:]
+        if not digits_only.isdigit():
+            raise serializers.ValidationError("Phone number must contain only digits after country code")
+        
+        if len(digits_only) < 10 or len(digits_only) > 15:
+            raise serializers.ValidationError("Phone number must be between 10 and 15 digits")
+        
+        # Check if phone number already exists
+        if CustomUser.objects.filter(phone_number=value).exists():
+            raise serializers.ValidationError("An account with this phone number already exists")
+        
+        return value
+
+    def validate_email(self, value):
+        """Validate email during registration"""
+        if CustomUser.objects.filter(email=value).exists():
+            raise serializers.ValidationError("An account with this email already exists")
+        return value
 
     def validate(self, attrs):
         if attrs['password'] != attrs['confirm_password']:
@@ -212,3 +240,40 @@ class CustomTokenSerializer(TokenObtainPairSerializer):
     
 class CustomTokenView(TokenObtainPairView):
     serializer_class = CustomTokenSerializer
+
+
+class PhoneVerificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PhoneVerification
+        fields = ['phone_number', 'verification_code', 'created_at', 'expires_at']
+        read_only_fields = ['verification_code', 'created_at', 'expires_at']
+
+
+class SendVerificationCodeSerializer(serializers.Serializer):
+    phone_number = serializers.CharField(max_length=15)
+    
+    def validate_phone_number(self, value):
+        """Validate phone number format"""
+        if not value.startswith('+'):
+            raise serializers.ValidationError("Phone number must start with country code (e.g., +234)")
+        
+        # Remove + and check if remaining characters are digits
+        digits_only = value[1:]
+        if not digits_only.isdigit():
+            raise serializers.ValidationError("Phone number must contain only digits after country code")
+        
+        if len(digits_only) < 10 or len(digits_only) > 15:
+            raise serializers.ValidationError("Phone number must be between 10 and 15 digits")
+        
+        return value
+
+
+class VerifyPhoneCodeSerializer(serializers.Serializer):
+    phone_number = serializers.CharField(max_length=15)
+    verification_code = serializers.CharField(max_length=6, min_length=6)
+    
+    def validate_verification_code(self, value):
+        """Validate verification code format"""
+        if not value.isdigit():
+            raise serializers.ValidationError("Verification code must be 6 digits")
+        return value

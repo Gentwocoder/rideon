@@ -37,9 +37,9 @@ from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from django.db.models import Q
-from .models import Ride, RideRequest, RideMessage
-from .serializers import RideSerializer, RideCreateSerializer, RideRequestSerializer, RideMessageSerializer
+from django.db.models import Q, Avg
+from .models import Ride, RideRequest, RideMessage, Rating
+from .serializers import RideSerializer, RideCreateSerializer, RideRequestSerializer, RideMessageSerializer, RatingSerializer, RatingCreateSerializer
 # from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 
 @api_view(['GET', 'POST'])
@@ -156,3 +156,118 @@ def driver_arrival_notification(request, ride_id):
     
     except Ride.DoesNotExist:
         return Response({'error': 'Ride not found or unauthorized'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def ride_ratings(request, ride_id):
+    """Get ratings for a ride or create a new rating"""
+    try:
+        ride = Ride.objects.get(id=ride_id)
+        
+        # Check if user is involved in the ride
+        if ride.rider != request.user and ride.driver != request.user:
+            return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+        
+        # Only allow rating for completed rides
+        if ride.status != 'completed':
+            return Response({'error': 'Can only rate completed rides'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if request.method == 'GET':
+            ratings = Rating.objects.filter(ride=ride)
+            serializer = RatingSerializer(ratings, many=True)
+            return Response(serializer.data)
+        
+        elif request.method == 'POST':
+            # Determine who is being rated
+            if request.user == ride.rider:
+                # Rider is rating the driver
+                rated_user = ride.driver
+            elif request.user == ride.driver:
+                # Driver is rating the rider
+                rated_user = ride.rider
+            else:
+                return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+            
+            if not rated_user:
+                return Response({'error': 'No user to rate'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Check if user has already rated
+            existing_rating = Rating.objects.filter(
+                ride=ride, 
+                rater=request.user, 
+                rated_user=rated_user
+            ).first()
+            
+            if existing_rating:
+                return Response({'error': 'You have already rated this ride'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            serializer = RatingCreateSerializer(data=request.data)
+            if serializer.is_valid():
+                rating = serializer.save(
+                    ride=ride,
+                    rater=request.user,
+                    rated_user=rated_user
+                )
+                return Response(RatingSerializer(rating).data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    except Ride.DoesNotExist:
+        return Response({'error': 'Ride not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def user_ratings(request, user_id=None):
+    """Get ratings for a specific user or current user"""
+    target_user_id = user_id or request.user.id
+    
+    try:
+        # Get all ratings received by the user
+        ratings = Rating.objects.filter(rated_user_id=target_user_id)
+        
+        # Calculate average ratings
+        avg_overall = ratings.aggregate(Avg('rating'))['rating__avg'] or 0
+        avg_punctuality = ratings.aggregate(Avg('punctuality'))['punctuality__avg'] or 0
+        avg_communication = ratings.aggregate(Avg('communication'))['communication__avg'] or 0
+        avg_cleanliness = ratings.aggregate(Avg('cleanliness'))['cleanliness__avg'] or 0
+        avg_professionalism = ratings.aggregate(Avg('professionalism'))['professionalism__avg'] or 0
+        
+        ratings_data = RatingSerializer(ratings, many=True).data
+        
+        return Response({
+            'ratings': ratings_data,
+            'total_ratings': ratings.count(),
+            'averages': {
+                'overall': round(avg_overall, 2),
+                'punctuality': round(avg_punctuality, 2),
+                'communication': round(avg_communication, 2),
+                'cleanliness': round(avg_cleanliness, 2),
+                'professionalism': round(avg_professionalism, 2)
+            }
+        })
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['PUT', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def rating_detail(request, rating_id):
+    """Update or delete a specific rating"""
+    try:
+        rating = Rating.objects.get(id=rating_id, rater=request.user)
+        
+        if request.method == 'PUT':
+            serializer = RatingCreateSerializer(rating, data=request.data, partial=True)
+            if serializer.is_valid():
+                rating = serializer.save()
+                return Response(RatingSerializer(rating).data)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        elif request.method == 'DELETE':
+            rating.delete()
+            return Response({'message': 'Rating deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
+    
+    except Rating.DoesNotExist:
+        return Response({'error': 'Rating not found'}, status=status.HTTP_404_NOT_FOUND)

@@ -3,7 +3,9 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 # from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
-from core.views import RegisterView, CustomTokenView, ProfileView, DriverProfileView, LogoutView, LoginView, VerifyEmailView
+from core.views import (RegisterView, CustomTokenView, ProfileView, DriverProfileView, 
+                       LogoutView, LoginView, VerifyEmailView, send_verification_code,
+                       verify_phone_code, phone_verification_status)
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import TemplateView
@@ -29,6 +31,11 @@ urlpatterns = [
     path("api/verify-email/<uuid:token>/", VerifyEmailView.as_view(), name="verify-email"),
     path("auth/logout/", LogoutView.as_view(), name="logout"),
     
+    # Phone verification endpoints
+    path("api/phone/send-code/", send_verification_code, name="send_verification_code"),
+    path("api/phone/verify-code/", verify_phone_code, name="verify_phone_code"),
+    path("api/phone/status/", phone_verification_status, name="phone_verification_status"),
+    
     # Frontend routes
     path("", TemplateView.as_view(template_name="home.html"), name="home"),
     path("login/", TemplateView.as_view(template_name="login.html"), name="login"),
@@ -37,6 +44,7 @@ urlpatterns = [
     path("driver-dashboard/", TemplateView.as_view(template_name="driver_dashboard.html"), name="driver_dashboard"),
     path("request-ride/", TemplateView.as_view(template_name="request_ride.html"), name="request_ride"),
     path("my-profile/", TemplateView.as_view(template_name="profile.html"), name="profile"),
+    path("verify-phone/", TemplateView.as_view(template_name="phone_verification.html"), name="phone_verification"),
     path("verify-email/<uuid:token>/", TemplateView.as_view(template_name="email_verification.html"), name="email_verification"),
 ]
 

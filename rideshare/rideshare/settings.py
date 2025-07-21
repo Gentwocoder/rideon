@@ -187,3 +187,22 @@ EMAIL_USE_TLS = True
 # EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 # EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 DEFAULT_FROM_EMAIL = 'noreply@rideon.com'
+
+# SMS Service Configuration
+# SMS Service Configuration
+SMS_ENABLED = True  # Enable SMS service
+SMS_PROVIDER = config('SMS_PROVIDER', default='mock')  # 'mock', 'twilio', or 'termii'
+
+# Twilio Configuration
+TWILIO_ACCOUNT_SID = config('TWILIO_ACCOUNT_SID', default='')
+TWILIO_AUTH_TOKEN = config('TWILIO_AUTH_TOKEN', default='')
+TWILIO_PHONE_NUMBER = config('TWILIO_PHONE_NUMBER', default='')
+
+# Termii Configuration
+TERMII_API_KEY = config('TERMII_API_KEY', default='')
+TERMII_SENDER_ID = config('TERMII_SENDER_ID', default='RideOn')
+
+# Phone Verification Settings
+PHONE_VERIFICATION_CODE_LENGTH = 6
+PHONE_VERIFICATION_CODE_EXPIRY_MINUTES = 10
+PHONE_VERIFICATION_MAX_ATTEMPTS = 3

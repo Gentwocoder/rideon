@@ -1,0 +1,405 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Phone Verification - Rideon{% endblock %}
+
+{% block extra_css %}
+<style>
+.verification-card {
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.verification-code-input {
+    font-size: 1.5rem;
+    letter-spacing: 0.5rem;
+    text-align: center;
+    font-weight: bold;
+}
+
+.phone-display {
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-radius: 5px;
+    border-left: 4px solid #007bff;
+}
+
+.step-indicator {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 30px;
+}
+
+.step {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 10px;
+    color: white;
+    font-weight: bold;
+}
+
+.step.active {
+    background-color: #007bff;
+}
+
+.step.completed {
+    background-color: #28a745;
+}
+
+.step.inactive {
+    background-color: #6c757d;
+}
+
+.resend-timer {
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card verification-card">
+                <div class="card-body p-4">
+                    <!-- Step Indicator -->
+                    <div class="step-indicator">
+                        <div class="step" id="step-1">1</div>
+                        <div class="step" id="step-2">2</div>
+                        <div class="step" id="step-3">3</div>
+                    </div>
+
+                    <!-- Step 1: Send Code -->
+                    <div id="step-send-code" class="verification-step">
+                        <div class="text-center mb-4">
+                            <i class="fas fa-mobile-alt display-4 text-primary mb-3"></i>
+                            <h3>Verify Your Phone Number</h3>
+                            <p class="text-muted">We'll send a verification code to your registered phone number to confirm your identity.</p>
+                        </div>
+
+                        <div class="phone-display mb-4">
+                            <h6 class="mb-2">Your Phone Number:</h6>
+                            <p class="mb-0 h5" id="user-phone-number">Loading...</p>
+                        </div>
+
+                        <button class="btn btn-primary w-100" id="send-code-btn" onclick="sendVerificationCode()">
+                            <i class="fas fa-paper-plane me-2"></i>Send Verification Code
+                        </button>
+                    </div>
+
+                    <!-- Step 2: Enter Code -->
+                    <div id="step-enter-code" class="verification-step d-none">
+                        <div class="text-center mb-4">
+                            <i class="fas fa-sms display-4 text-success mb-3"></i>
+                            <h3>Enter Verification Code</h3>
+                            <p class="text-muted">We've sent a 6-digit code to <strong id="sent-to-phone"></strong></p>
+                        </div>
+
+                        <form id="verify-code-form">
+                            <div class="mb-3">
+                                <input type="text" 
+                                       class="form-control verification-code-input" 
+                                       id="verification-code" 
+                                       placeholder="000000" 
+                                       maxlength="6" 
+                                       pattern="[0-9]{6}"
+                                       required>
+                                <div class="form-text">Enter the 6-digit code sent to your phone</div>
+                            </div>
+
+                            <button type="submit" class="btn btn-success w-100 mb-3" id="verify-btn">
+                                <i class="fas fa-check me-2"></i>Verify Code
+                            </button>
+                        </form>
+
+                        <div class="text-center">
+                            <p class="mb-2">Didn't receive the code?</p>
+                            <button class="btn btn-outline-secondary" id="resend-btn" onclick="sendVerificationCode()" disabled>
+                                <i class="fas fa-redo me-2"></i>Resend Code
+                            </button>
+                            <div class="resend-timer mt-2">
+                                <span id="resend-timer">Resend available in <span id="countdown">60</span> seconds</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Success -->
+                    <div id="step-success" class="verification-step d-none">
+                        <div class="text-center">
+                            <i class="fas fa-check-circle display-4 text-success mb-3"></i>
+                            <h3>Phone Verified Successfully!</h3>
+                            <p class="text-muted mb-4">Your phone number has been verified. You can now enjoy full access to Rideon services.</p>
+                            
+                            <div class="d-grid gap-2">
+                                <a href="/dashboard/" class="btn btn-primary">
+                                    <i class="fas fa-tachometer-alt me-2"></i>Go to Dashboard
+                                </a>
+                                <a href="/my-profile/" class="btn btn-outline-secondary">
+                                    <i class="fas fa-user me-2"></i>View Profile
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Loading State -->
+                    <div id="loading-state" class="text-center py-4 d-none">
+                        <div class="spinner-border text-primary mb-3" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="text-muted">Processing your request...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentStep = 1;
+let resendCountdown = 0;
+let resendTimer = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Check authentication
+    if (!isAuthenticated()) {
+        showAlert('Please login to verify your phone number', 'warning');
+        setTimeout(() => {
+            window.location.href = '/login/';
+        }, 2000);
+        return;
+    }
+
+    // Load user profile and check verification status
+    loadUserProfile();
+    
+    // Set up form submission
+    document.getElementById('verify-code-form').addEventListener('submit', handleCodeVerification);
+    
+    // Set up verification code input formatting
+    const codeInput = document.getElementById('verification-code');
+    codeInput.addEventListener('input', function(e) {
+        // Only allow digits
+        this.value = this.value.replace(/\D/g, '');
+        
+        // Auto-submit when 6 digits are entered
+        if (this.value.length === 6) {
+            setTimeout(() => {
+                document.getElementById('verify-code-form').dispatchEvent(new Event('submit'));
+            }, 100);
+        }
+    });
+});
+
+async function loadUserProfile() {
+    try {
+        const response = await makeAuthenticatedRequest('/profile/');
+        
+        if (response.ok) {
+            const user = await response.json();
+            document.getElementById('user-phone-number').textContent = user.phone_number || 'Not set';
+            
+            // Check if phone is already verified
+            if (user.is_phone_verified) {
+                showStep(3);
+                showAlert('Your phone number is already verified!', 'success');
+            }
+        } else {
+            throw new Error('Failed to load user profile');
+        }
+    } catch (error) {
+        console.error('Error loading user profile:', error);
+        showAlert('Error loading user profile', 'danger');
+    }
+}
+
+async function sendVerificationCode() {
+    const sendBtn = document.getElementById('send-code-btn');
+    const resendBtn = document.getElementById('resend-btn');
+    
+    try {
+        // Get user phone number
+        const userResponse = await makeAuthenticatedRequest('/profile/');
+        if (!userResponse.ok) throw new Error('Failed to get user profile');
+        
+        const user = await userResponse.json();
+        const phoneNumber = user.phone_number;
+        
+        if (!phoneNumber) {
+            showAlert('No phone number found. Please update your profile first.', 'warning');
+            return;
+        }
+
+        // Show loading state
+        showLoading(true);
+        sendBtn.disabled = true;
+        resendBtn.disabled = true;
+
+        const response = await makeAuthenticatedRequest('/api/phone/send-code/', {
+            method: 'POST',
+            body: JSON.stringify({
+                phone_number: phoneNumber
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            // Move to step 2
+            showStep(2);
+            document.getElementById('sent-to-phone').textContent = phoneNumber;
+            
+            // Start resend countdown
+            startResendCountdown();
+            
+            showAlert('Verification code sent successfully!', 'success');
+            
+            // Focus on code input
+            setTimeout(() => {
+                document.getElementById('verification-code').focus();
+            }, 500);
+        } else {
+            throw new Error(data.error || 'Failed to send verification code');
+        }
+    } catch (error) {
+        console.error('Error sending verification code:', error);
+        showAlert(error.message, 'danger');
+    } finally {
+        showLoading(false);
+        sendBtn.disabled = false;
+    }
+}
+
+async function handleCodeVerification(e) {
+    e.preventDefault();
+    
+    const verifyBtn = document.getElementById('verify-btn');
+    const codeInput = document.getElementById('verification-code');
+    const verificationCode = codeInput.value.trim();
+    
+    if (verificationCode.length !== 6) {
+        showAlert('Please enter a 6-digit verification code', 'warning');
+        codeInput.focus();
+        return;
+    }
+    
+    try {
+        // Get user phone number
+        const userResponse = await makeAuthenticatedRequest('/profile/');
+        if (!userResponse.ok) throw new Error('Failed to get user profile');
+        
+        const user = await userResponse.json();
+        
+        // Show loading state
+        showLoading(true);
+        verifyBtn.disabled = true;
+
+        const response = await makeAuthenticatedRequest('/api/phone/verify-code/', {
+            method: 'POST',
+            body: JSON.stringify({
+                phone_number: user.phone_number,
+                verification_code: verificationCode
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            // Success! Move to step 3
+            showStep(3);
+            showAlert('Phone number verified successfully!', 'success');
+            
+            // Clear the countdown
+            if (resendTimer) {
+                clearInterval(resendTimer);
+            }
+        } else {
+            throw new Error(data.error || 'Verification failed');
+        }
+    } catch (error) {
+        console.error('Error verifying code:', error);
+        showAlert(error.message, 'danger');
+        codeInput.focus();
+        codeInput.select();
+    } finally {
+        showLoading(false);
+        verifyBtn.disabled = false;
+    }
+}
+
+function showStep(step) {
+    currentStep = step;
+    
+    // Hide all steps
+    document.querySelectorAll('.verification-step').forEach(el => {
+        el.classList.add('d-none');
+    });
+    
+    // Show current step
+    if (step === 1) {
+        document.getElementById('step-send-code').classList.remove('d-none');
+    } else if (step === 2) {
+        document.getElementById('step-enter-code').classList.remove('d-none');
+    } else if (step === 3) {
+        document.getElementById('step-success').classList.remove('d-none');
+    }
+    
+    // Update step indicators
+    for (let i = 1; i <= 3; i++) {
+        const stepEl = document.getElementById(`step-${i}`);
+        stepEl.classList.remove('active', 'completed', 'inactive');
+        
+        if (i < step) {
+            stepEl.classList.add('completed');
+            stepEl.innerHTML = '<i class="fas fa-check"></i>';
+        } else if (i === step) {
+            stepEl.classList.add('active');
+            stepEl.textContent = i;
+        } else {
+            stepEl.classList.add('inactive');
+            stepEl.textContent = i;
+        }
+    }
+}
+
+function showLoading(show) {
+    const loadingEl = document.getElementById('loading-state');
+    if (show) {
+        document.querySelectorAll('.verification-step').forEach(el => {
+            el.classList.add('d-none');
+        });
+        loadingEl.classList.remove('d-none');
+    } else {
+        loadingEl.classList.add('d-none');
+        showStep(currentStep);
+    }
+}
+
+function startResendCountdown() {
+    resendCountdown = 60;
+    const resendBtn = document.getElementById('resend-btn');
+    const countdownEl = document.getElementById('countdown');
+    const timerEl = document.getElementById('resend-timer');
+    
+    resendBtn.disabled = true;
+    timerEl.classList.remove('d-none');
+    
+    resendTimer = setInterval(() => {
+        resendCountdown--;
+        countdownEl.textContent = resendCountdown;
+        
+        if (resendCountdown <= 0) {
+            clearInterval(resendTimer);
+            resendBtn.disabled = false;
+            timerEl.classList.add('d-none');
+        }
+    }, 1000);
+}
+</script>
+{% endblock %}

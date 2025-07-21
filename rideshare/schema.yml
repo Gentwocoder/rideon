@@ -1,0 +1,565 @@
+openapi: 3.0.3
+info:
+  title: Rideon API
+  version: 1.0.0
+  description: API for Rideon
+paths:
+  /api/:
+    get:
+      operationId: root_retrieve
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: root_create
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/{ride_id}/accept/:
+    put:
+      operationId: accept_update
+      parameters:
+      - in: path
+        name: ride_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - accept
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/{ride_id}/status/:
+    put:
+      operationId: status_update
+      parameters:
+      - in: path
+        name: ride_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - status
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/available/:
+    get:
+      operationId: available_retrieve
+      description: Get all pending rides for drivers
+      tags:
+      - available
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/token/:
+    post:
+      operationId: token_create
+      description: |-
+        Takes a set of user credentials and returns an access and refresh JSON web
+        token pair to prove the authentication of those credentials.
+      tags:
+      - token
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomTokenRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CustomTokenRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CustomTokenRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/token/refresh/:
+    post:
+      operationId: token_refresh_create
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
+      tags:
+      - token
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /api/verify-email/{token}/:
+    get:
+      operationId: verify_email_retrieve
+      parameters:
+      - in: path
+        name: token
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - verify-email
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /auth/login/:
+    post:
+      operationId: auth_login_create
+      description: |-
+        Takes a set of user credentials and returns an access and refresh JSON web
+        token pair to prove the authentication of those credentials.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPairRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPairRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPairRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenObtainPair'
+          description: ''
+  /auth/logout/:
+    post:
+      operationId: auth_logout_create
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /auth/register/:
+    post:
+      operationId: auth_register_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Register'
+          description: ''
+  /driver-profile/:
+    get:
+      operationId: driver_profile_retrieve
+      tags:
+      - driver-profile
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverProfile'
+          description: ''
+    post:
+      operationId: driver_profile_create
+      tags:
+      - driver-profile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DriverProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DriverProfileRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverProfile'
+          description: ''
+    put:
+      operationId: driver_profile_update
+      tags:
+      - driver-profile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DriverProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DriverProfileRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverProfile'
+          description: ''
+    delete:
+      operationId: driver_profile_destroy
+      tags:
+      - driver-profile
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /profile/:
+    get:
+      operationId: profile_retrieve
+      tags:
+      - profile
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    put:
+      operationId: profile_update
+      tags:
+      - profile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+components:
+  schemas:
+    CustomTokenRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          writeOnly: true
+          minLength: 1
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - email
+      - password
+    DriverProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        license_number:
+          type: string
+          maxLength: 50
+        vehicle_make:
+          type: string
+          maxLength: 50
+        vehicle_model:
+          type: string
+          maxLength: 50
+        vehicle_year:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        vehicle_color:
+          type: string
+          maxLength: 30
+        vehicle_plate:
+          type: string
+          maxLength: 20
+        is_available:
+          type: boolean
+        rating:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,1}(?:\.\d{0,2})?$
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        user:
+          type: integer
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - license_number
+      - rating
+      - user
+      - vehicle_color
+      - vehicle_make
+      - vehicle_model
+      - vehicle_plate
+      - vehicle_year
+    DriverProfileRequest:
+      type: object
+      properties:
+        license_number:
+          type: string
+          minLength: 1
+          maxLength: 50
+        vehicle_make:
+          type: string
+          minLength: 1
+          maxLength: 50
+        vehicle_model:
+          type: string
+          minLength: 1
+          maxLength: 50
+        vehicle_year:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        vehicle_color:
+          type: string
+          minLength: 1
+          maxLength: 30
+        vehicle_plate:
+          type: string
+          minLength: 1
+          maxLength: 20
+        is_available:
+          type: boolean
+      required:
+      - license_number
+      - vehicle_color
+      - vehicle_make
+      - vehicle_model
+      - vehicle_plate
+      - vehicle_year
+    Register:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        phone_number:
+          type: string
+          maxLength: 15
+      required:
+      - email
+      - id
+      - phone_number
+    RegisterRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 254
+        phone_number:
+          type: string
+          minLength: 1
+          maxLength: 15
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - email
+      - password
+      - phone_number
+    TokenObtainPair:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+          readOnly: true
+      required:
+      - access
+      - refresh
+    TokenObtainPairRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          writeOnly: true
+          minLength: 1
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - email
+      - password
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+      required:
+      - access
+      - refresh
+    TokenRefreshRequest:
+      type: object
+      properties:
+        refresh:
+          type: string
+          minLength: 1
+      required:
+      - refresh
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        user_type:
+          $ref: '#/components/schemas/UserTypeEnum'
+        phone_number:
+          type: string
+          maxLength: 15
+        is_email_verified:
+          type: boolean
+        is_phone_verified:
+          type: boolean
+        is_active:
+          type: boolean
+        is_staff:
+          type: boolean
+      required:
+      - email
+      - id
+      - phone_number
+    UserRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 254
+        user_type:
+          $ref: '#/components/schemas/UserTypeEnum'
+        phone_number:
+          type: string
+          minLength: 1
+          maxLength: 15
+        is_email_verified:
+          type: boolean
+        is_phone_verified:
+          type: boolean
+        is_active:
+          type: boolean
+        is_staff:
+          type: boolean
+      required:
+      - email
+      - phone_number
+    UserTypeEnum:
+      enum:
+      - RIDER
+      - DRIVER
+      - ADMIN
+      type: string
+      description: |-
+        * `RIDER` - Rider
+        * `DRIVER` - Driver
+        * `ADMIN` - Admin
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

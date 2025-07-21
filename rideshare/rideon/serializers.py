@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.utils import timezone
-from .models import Ride, RideRequest, RideMessage
+from .models import Ride, RideRequest, RideMessage, Rating
 from core.serializers import UserSerializer
 
 class RideSerializer(serializers.ModelSerializer):
@@ -41,3 +41,49 @@ class RideMessageSerializer(serializers.ModelSerializer):
         model = RideMessage
         fields = '__all__'
         read_only_fields = ['id', 'ride', 'sender', 'created_at']
+
+
+class RatingSerializer(serializers.ModelSerializer):
+    rater = UserSerializer(read_only=True)
+    rated_user = UserSerializer(read_only=True)
+    
+    class Meta:
+        model = Rating
+        fields = '__all__'
+        read_only_fields = ['rater', 'rated_user', 'created_at', 'updated_at']
+
+
+class RatingCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Rating
+        fields = ['rating', 'comment', 'punctuality', 'communication', 'cleanliness', 'professionalism']
+    
+    def validate_rating(self, value):
+        """Validate that rating is between 1 and 5"""
+        if value < 1 or value > 5:
+            raise serializers.ValidationError("Rating must be between 1 and 5")
+        return value
+    
+    def validate_punctuality(self, value):
+        """Validate punctuality rating"""
+        if value is not None and (value < 1 or value > 5):
+            raise serializers.ValidationError("Punctuality rating must be between 1 and 5")
+        return value
+    
+    def validate_communication(self, value):
+        """Validate communication rating"""
+        if value is not None and (value < 1 or value > 5):
+            raise serializers.ValidationError("Communication rating must be between 1 and 5")
+        return value
+    
+    def validate_cleanliness(self, value):
+        """Validate cleanliness rating"""
+        if value is not None and (value < 1 or value > 5):
+            raise serializers.ValidationError("Cleanliness rating must be between 1 and 5")
+        return value
+    
+    def validate_professionalism(self, value):
+        """Validate professionalism rating"""
+        if value is not None and (value < 1 or value > 5):
+            raise serializers.ValidationError("Professionalism rating must be between 1 and 5")
+        return value

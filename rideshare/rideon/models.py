@@ -81,3 +81,36 @@ class RideMessage(models.Model):
     
     def __str__(self):
         return f"Message for Ride {self.ride.id} from {self.sender.email}"
+
+
+class Rating(models.Model):
+    RATING_CHOICES = [
+        (1, '1 Star'),
+        (2, '2 Stars'),
+        (3, '3 Stars'),
+        (4, '4 Stars'),
+        (5, '5 Stars'),
+    ]
+    
+    ride = models.ForeignKey(Ride, on_delete=models.CASCADE, related_name='ratings')
+    rater = models.ForeignKey(User, on_delete=models.CASCADE, related_name='ratings_given')
+    rated_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='ratings_received')
+    
+    rating = models.IntegerField(choices=RATING_CHOICES)
+    comment = models.TextField(blank=True, help_text="Optional comment about the rating")
+    
+    # Rating categories
+    punctuality = models.IntegerField(choices=RATING_CHOICES, null=True, blank=True, help_text="How punctual was the person")
+    communication = models.IntegerField(choices=RATING_CHOICES, null=True, blank=True, help_text="How good was the communication")
+    cleanliness = models.IntegerField(choices=RATING_CHOICES, null=True, blank=True, help_text="How clean was the vehicle/person")
+    professionalism = models.IntegerField(choices=RATING_CHOICES, null=True, blank=True, help_text="How professional was the person")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ['ride', 'rater', 'rated_user']
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Rating {self.rating}/5 for {self.rated_user.email} by {self.rater.email} (Ride {self.ride.id})"
