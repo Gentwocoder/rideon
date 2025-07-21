@@ -51,8 +51,10 @@
                                     <span class="input-group-text">
                                         <i class="fas fa-phone"></i>
                                     </span>
-                                    <input type="tel" class="form-control" id="phone_number" name="phone_number" required>
+                                    <input type="tel" class="form-control" id="phone_number" name="phone_number" 
+                                           placeholder="+234xxxxxxxxxx" required>
                                 </div>
+                                <small class="form-text text-muted">Include country code (e.g., +234)</small>
                             </div>
                         </div>
                         
@@ -255,25 +257,40 @@ document.getElementById('registerForm').addEventListener('submit', async functio
                 window.location.href = '/login/';
             }, 3000);
         } else {
-            // Better error handling
+            // Better error handling - show specific field errors
             console.error('Registration failed:', result);
-            let errorMessage = 'Registration failed. Please try again.';
             
-            if (result.message) {
-                errorMessage = result.message;
-            } else if (result.errors) {
-                // Handle field-specific errors
-                const errors = Object.entries(result.errors).map(([field, messages]) => {
-                    return `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`;
-                }).join('; ');
-                errorMessage = errors;
-            } else if (typeof result === 'object') {
-                // Handle other error formats
-                const errors = Object.values(result).flat().join(', ');
-                if (errors) errorMessage = errors;
+            if (result.errors && typeof result.errors === 'object') {
+                // Clear any existing field errors
+                clearFieldErrors();
+                
+                // Show field-specific errors
+                let hasErrors = false;
+                for (const [field, messages] of Object.entries(result.errors)) {
+                    const fieldElement = document.getElementById(field);
+                    if (fieldElement) {
+                        // Add error styling to field
+                        fieldElement.classList.add('is-invalid');
+                        
+                        // Create or update error message
+                        const errorMessage = Array.isArray(messages) ? messages[0] : messages;
+                        showFieldError(field, errorMessage);
+                        hasErrors = true;
+                    }
+                }
+                
+                // If we have field-specific errors, show them, otherwise show general message
+                if (hasErrors) {
+                    showAlert('Please correct the errors below and try again.', 'danger');
+                } else {
+                    const generalError = Object.values(result.errors).flat().join(', ');
+                    showAlert(generalError || result.message || 'Registration failed. Please try again.', 'danger');
+                }
+            } else {
+                // General error message
+                const errorMessage = result.message || 'Registration failed. Please try again.';
+                showAlert(errorMessage, 'danger');
             }
-            
-            showAlert(errorMessage, 'danger');
         }
     } catch (error) {
         console.error('Registration error:', error);
@@ -300,6 +317,58 @@ function togglePassword(fieldId) {
         toggleIcon.classList.add('fa-eye');
     }
 }
+
+function clearFieldErrors() {
+    // Remove error styling from all fields
+    document.querySelectorAll('.is-invalid').forEach(field => {
+        field.classList.remove('is-invalid');
+    });
+    
+    // Remove all error messages
+    document.querySelectorAll('.invalid-feedback').forEach(error => {
+        error.remove();
+    });
+}
+
+function showFieldError(fieldId, message) {
+    const field = document.getElementById(fieldId);
+    if (!field) return;
+    
+    // Remove existing error message for this field
+    const existingError = field.parentNode.querySelector('.invalid-feedback');
+    if (existingError) {
+        existingError.remove();
+    }
+    
+    // Create new error message
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'invalid-feedback d-block';
+    errorDiv.textContent = message;
+    
+    // Insert error message after the input group or field
+    const inputGroup = field.closest('.input-group');
+    if (inputGroup) {
+        inputGroup.parentNode.insertBefore(errorDiv, inputGroup.nextSibling);
+    } else {
+        field.parentNode.insertBefore(errorDiv, field.nextSibling);
+    }
+}
+
+// Clear field errors when user starts typing
+document.addEventListener('DOMContentLoaded', function() {
+    const formFields = document.querySelectorAll('#registerForm input');
+    formFields.forEach(field => {
+        field.addEventListener('input', function() {
+            if (this.classList.contains('is-invalid')) {
+                this.classList.remove('is-invalid');
+                const errorMessage = this.parentNode.parentNode.querySelector('.invalid-feedback');
+                if (errorMessage) {
+                    errorMessage.remove();
+                }
+            }
+        });
+    });
+});
 
 // Redirect if already logged in
 document.addEventListener('DOMContentLoaded', function() {

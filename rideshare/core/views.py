@@ -59,6 +59,23 @@ class RegisterView(generics.CreateAPIView):
             }, status=status.HTTP_201_CREATED)
         except Exception as e:
             print("Registration error:", str(e))  # Debug logging
+            
+            # Handle database integrity errors
+            error_message = str(e).lower()
+            if 'unique constraint' in error_message or 'already exists' in error_message:
+                if 'email' in error_message:
+                    return Response({
+                        'message': 'Registration failed. Please check the errors below.',
+                        'errors': {'email': 'An account with this email already exists'},
+                        'status': 'error'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                elif 'phone' in error_message:
+                    return Response({
+                        'message': 'Registration failed. Please check the errors below.',
+                        'errors': {'phone_number': 'An account with this phone number already exists'},
+                        'status': 'error'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            
             return Response({
                 'message': 'Registration failed due to an unexpected error.',
                 'errors': {'detail': 'An unexpected error occurred. Please try again.'},

@@ -58,13 +58,26 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def validate_email(self, value):
         """Validate email during registration"""
-        if CustomUser.objects.filter(email=value).exists():
+        # Normalize email (convert to lowercase)
+        value = value.lower().strip()
+        
+        if CustomUser.objects.filter(email__iexact=value).exists():
             raise serializers.ValidationError("An account with this email already exists")
         return value
 
     def validate(self, attrs):
         if attrs['password'] != attrs['confirm_password']:
             raise serializers.ValidationError("Passwords don't match")
+        
+        # Double-check email uniqueness (case-insensitive)
+        email = attrs.get('email', '').lower().strip()
+        if email and CustomUser.objects.filter(email__iexact=email).exists():
+            raise serializers.ValidationError({"email": "An account with this email already exists"})
+        
+        # Double-check phone number uniqueness
+        phone_number = attrs.get('phone_number', '')
+        if phone_number and CustomUser.objects.filter(phone_number=phone_number).exists():
+            raise serializers.ValidationError({"phone_number": "An account with this phone number already exists"})
         
         # If user_type is DRIVER, validate that driver fields are provided
         if attrs.get('user_type') == 'DRIVER':
