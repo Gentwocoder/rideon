@@ -54,30 +54,36 @@ A modern, full-stack ride sharing platform built with Django REST Framework and 
 
 1. **Clone and setup the project**:
 ```bash
-cd "rideon/rideshare"
+git clone https://www.github.com/gentwocoder/rideon.git
+cd "rideon"
 ```
 
-2. **Install dependencies**:
+2. **Create virtual environment**:
+```bash
+python -m venv virtualenv
+```
+
+3. **Install dependencies**:
 ```bash
 pip install -r requirements.txt
 ```
 
-3. **Run migrations**:
+4. **Run migrations**:
 ```bash
 python manage.py migrate
 ```
 
-4. **Create a superuser** (optional):
+5. **Create a superuser** (optional):
 ```bash
 python manage.py createsuperuser
 ```
 
-5. **Start the development server**:
+6. **Start the development server**:
 ```bash
 python manage.py runserver
 ```
 
-6. **Access the application**:
+7. **Access the application**:
    - Frontend: http://127.0.0.1:8000/
    - Admin Panel: http://127.0.0.1:8000/admin/
    - API Endpoints: http://127.0.0.1:8000/api/
