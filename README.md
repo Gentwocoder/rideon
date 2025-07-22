@@ -54,12 +54,12 @@ A modern, full-stack ride sharing platform built with Django REST Framework and 
 
 1. **Clone and setup the project**:
 ```bash
-cd "Ride Sharing Project/rideshare"
+cd "rideon/rideshare"
 ```
 
 2. **Install dependencies**:
 ```bash
-pip install django djangorestframework djangorestframework-simplejwt
+pip install -r requirements.txt
 ```
 
 3. **Run migrations**:
