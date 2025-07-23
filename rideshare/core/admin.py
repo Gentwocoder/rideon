@@ -5,7 +5,7 @@ from .models import CustomUser, DriverProfile
 # Register your models here.
 class CustomUserAdmin(UserAdmin):
     fieldsets = (
-        (None, {"fields": ("email", "password", "user_type")}),
+        (None, {"fields": ("email", "password", "user_type", "phone_number")}),
         ("Permissions", {"fields": ("is_staff", "is_active", "groups", "user_permissions")}),
     )
     add_fieldsets = (
