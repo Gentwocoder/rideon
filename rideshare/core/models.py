@@ -102,3 +102,30 @@ class PhoneVerification(models.Model):
     
     def __str__(self):
         return f"Verification for {self.phone_number} - {self.verification_code}"
+
+
+class PasswordReset(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='password_resets')
+    reset_token = models.UUIDField(default=uuid4, unique=True, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    is_used = models.BooleanField(default=False)
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def save(self, *args, **kwargs):
+        if not self.expires_at:
+            self.expires_at = timezone.now() + timedelta(hours=24)  # 24 hours expiry
+        super().save(*args, **kwargs)
+    
+    def is_expired(self):
+        """Check if the reset token has expired"""
+        return timezone.now() > self.expires_at
+    
+    def is_valid(self):
+        """Check if the reset token is still valid"""
+        return not self.is_used and not self.is_expired()
+    
+    def __str__(self):
+        return f"Password reset for {self.user.email} - {self.reset_token}"

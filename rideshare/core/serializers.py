@@ -17,8 +17,8 @@ class UserSerializer(serializers.ModelSerializer):
         extra_kwargs = {'password': {'write_only': True}}
 
 class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, min_length=6)
-    confirm_password = serializers.CharField(write_only=True, min_length=6)
+    password = serializers.CharField(write_only=True, min_length=8)
+    confirm_password = serializers.CharField(write_only=True, min_length=8)
     
     # Driver-specific fields (optional)
     license_number = serializers.CharField(required=False, allow_blank=True)
@@ -54,6 +54,17 @@ class RegisterSerializer(serializers.ModelSerializer):
         if CustomUser.objects.filter(phone_number=value).exists():
             raise serializers.ValidationError("An account with this phone number already exists")
         
+        return value
+
+    def validate_password(self, value):
+        """Validate password using Django's password validators"""
+        from django.contrib.auth.password_validation import validate_password
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        
+        try:
+            validate_password(value)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError(e.messages)
         return value
 
     def validate_email(self, value):
@@ -290,3 +301,88 @@ class VerifyPhoneCodeSerializer(serializers.Serializer):
         if not value.isdigit():
             raise serializers.ValidationError("Verification code must be 6 digits")
         return value
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    current_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True, min_length=8)
+    confirm_password = serializers.CharField(write_only=True, min_length=8)
+    
+    def validate_current_password(self, value):
+        """Validate current password"""
+        user = self.context['request'].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("Current password is incorrect")
+        return value
+    
+    def validate_new_password(self, value):
+        """Validate new password using Django's password validators"""
+        from django.contrib.auth.password_validation import validate_password
+        user = self.context['request'].user
+        
+        try:
+            validate_password(value, user)
+        except ValidationError as e:
+            raise serializers.ValidationError(e.messages)
+        return value
+    
+    def validate(self, attrs):
+        """Validate password confirmation"""
+        if attrs['new_password'] != attrs['confirm_password']:
+            raise serializers.ValidationError("New passwords don't match")
+        
+        # Check that new password is different from current password
+        if attrs['current_password'] == attrs['new_password']:
+            raise serializers.ValidationError("New password must be different from current password")
+        
+        return attrs
+
+
+class ForgotPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    
+    def validate_email(self, value):
+        """Validate that email exists in the system"""
+        try:
+            user = CustomUser.objects.get(email=value)
+            # Store user in context for later use
+            self.context['user'] = user
+        except CustomUser.DoesNotExist:
+            # Don't reveal whether email exists for security
+            pass
+        return value
+
+
+class ResetPasswordSerializer(serializers.Serializer):
+    token = serializers.UUIDField()
+    new_password = serializers.CharField(write_only=True, min_length=8)
+    confirm_password = serializers.CharField(write_only=True, min_length=8)
+    
+    def validate_new_password(self, value):
+        """Validate new password using Django's password validators"""
+        from django.contrib.auth.password_validation import validate_password
+        
+        try:
+            validate_password(value)
+        except ValidationError as e:
+            raise serializers.ValidationError(e.messages)
+        return value
+    
+    def validate(self, attrs):
+        """Validate password confirmation and token"""
+        if attrs['new_password'] != attrs['confirm_password']:
+            raise serializers.ValidationError("Passwords don't match")
+        
+        # Validate reset token
+        from .models import PasswordReset
+        try:
+            reset_request = PasswordReset.objects.get(reset_token=attrs['token'])
+            if not reset_request.is_valid():
+                raise serializers.ValidationError("Reset token is invalid or has expired")
+            
+            # Store reset request in context for later use
+            self.context['reset_request'] = reset_request
+        except PasswordReset.DoesNotExist:
+            raise serializers.ValidationError("Invalid reset token")
+        
+        return attrs

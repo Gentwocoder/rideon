@@ -5,7 +5,8 @@ from rest_framework_simplejwt.views import TokenRefreshView
 # from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from core.views import (RegisterView, CustomTokenView, ProfileView, DriverProfileView, 
                        LogoutView, LoginView, VerifyEmailView, send_verification_code,
-                       verify_phone_code, phone_verification_status)
+                       verify_phone_code, phone_verification_status, ChangePasswordView,
+                       ForgotPasswordView, ResetPasswordView)
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import TemplateView
@@ -36,6 +37,11 @@ urlpatterns = [
     path("api/phone/verify-code/", verify_phone_code, name="verify_phone_code"),
     path("api/phone/status/", phone_verification_status, name="phone_verification_status"),
     
+    # Password management endpoints
+    path("auth/change-password/", ChangePasswordView.as_view(), name="change_password"),
+    path("auth/forgot-password/", ForgotPasswordView.as_view(), name="forgot_password"),
+    path("auth/reset-password/", ResetPasswordView.as_view(), name="reset_password"),
+    
     # Frontend routes
     path("", TemplateView.as_view(template_name="home.html"), name="home"),
     path("login/", TemplateView.as_view(template_name="login.html"), name="login"),
@@ -46,6 +52,9 @@ urlpatterns = [
     path("my-profile/", TemplateView.as_view(template_name="profile.html"), name="profile"),
     path("verify-phone/", TemplateView.as_view(template_name="phone_verification.html"), name="phone_verification"),
     path("verify-email/<uuid:token>/", TemplateView.as_view(template_name="email_verification.html"), name="email_verification"),
+    path("change-password/", TemplateView.as_view(template_name="change_password.html"), name="change_password_page"),
+    path("forgot-password/", TemplateView.as_view(template_name="forgot_password.html"), name="forgot_password_page"),
+    path("reset-password/<uuid:token>/", TemplateView.as_view(template_name="reset_password.html"), name="reset_password_page"),
 ]
 
 if settings.DEBUG:

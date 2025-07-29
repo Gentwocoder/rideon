@@ -4,7 +4,7 @@
 {% block title %}Profile - Rideon{% endblock %}
 
 {% block content %}
-<div class="container py-4">
+<div class="container py-4 min-vh-80">
     <div class="row">
         <!-- Profile Information -->
         <div class="col-lg-8 mb-4">
@@ -330,7 +330,7 @@ async function updateDriverProfile(e) {
 }
 
 function changePassword() {
-    showAlert('Change password feature coming soon!', 'info');
+    window.location.href = '/change-password/';
 }
 
 function deactivateAccount() {

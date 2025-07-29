@@ -14,8 +14,9 @@ from rest_framework.throttling import UserRateThrottle
 from rest_framework.decorators import api_view, permission_classes
 from .serializers import (CustomTokenSerializer, UserSerializer, RegisterSerializer, 
                         DriverProfileSerializer, LoginSerializer, PhoneVerificationSerializer,
-                        SendVerificationCodeSerializer, VerifyPhoneCodeSerializer)
-from .models import CustomUser, DriverProfile, PhoneVerification
+                        SendVerificationCodeSerializer, VerifyPhoneCodeSerializer,
+                        ChangePasswordSerializer, ForgotPasswordSerializer, ResetPasswordSerializer)
+from .models import CustomUser, DriverProfile, PhoneVerification, PasswordReset
 from .sms_service import sms_service
 
 # Create your views here.
@@ -386,3 +387,126 @@ def phone_verification_status(request):
         'phone_number': user.phone_number,
         'recent_verifications': PhoneVerificationSerializer(recent_verifications, many=True).data
     }, status=status.HTTP_200_OK)
+
+
+class ChangePasswordView(APIView):
+    """Change password for authenticated users"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request):
+        from .serializers import ChangePasswordSerializer
+        
+        serializer = ChangePasswordSerializer(data=request.data, context={'request': request})
+        
+        if serializer.is_valid():
+            user = request.user
+            new_password = serializer.validated_data['new_password']
+            
+            # Set new password
+            user.set_password(new_password)
+            user.save()
+            
+            return Response({
+                'message': 'Password changed successfully!'
+            }, status=status.HTTP_200_OK)
+        
+        return Response({
+            'message': 'Password change failed. Please check the errors below.',
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ForgotPasswordView(APIView):
+    """Send password reset email"""
+    permission_classes = [permissions.AllowAny]
+    
+    def post(self, request):
+        from .serializers import ForgotPasswordSerializer
+        from .models import PasswordReset
+        from django.core.mail import send_mail
+        from django.conf import settings
+        
+        serializer = ForgotPasswordSerializer(data=request.data, context={'request': request})
+        
+        if serializer.is_valid():
+            email = serializer.validated_data['email']
+            
+            try:
+                user = CustomUser.objects.get(email=email)
+                
+                # Create password reset token
+                reset_request = PasswordReset.objects.create(user=user)
+                
+                # Send reset email
+                reset_url = f"{settings.FRONTEND_URL}/reset-password/{reset_request.reset_token}"
+                
+                subject = "Password Reset - RideShare"
+                message = f"""
+Hello,
+
+You requested a password reset for your RideShare account.
+
+Click the link below to reset your password:
+{reset_url}
+
+This link will expire in 24 hours.
+
+If you didn't request this password reset, please ignore this email.
+
+Best regards,
+The RideShare Team
+                """
+                
+                send_mail(
+                    subject,
+                    message,
+                    settings.DEFAULT_FROM_EMAIL,
+                    [email],
+                    fail_silently=False,
+                )
+                
+            except CustomUser.DoesNotExist:
+                # For security, don't reveal whether email exists
+                pass
+            
+            # Always return success message for security
+            return Response({
+                'message': 'If an account with this email exists, a password reset link has been sent.'
+            }, status=status.HTTP_200_OK)
+        
+        return Response({
+            'message': 'Please provide a valid email address.',
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ResetPasswordView(APIView):
+    """Reset password using token"""
+    permission_classes = [permissions.AllowAny]
+    
+    def post(self, request):
+        from .serializers import ResetPasswordSerializer
+        
+        serializer = ResetPasswordSerializer(data=request.data, context={'request': request})
+        
+        if serializer.is_valid():
+            reset_request = serializer.context['reset_request']
+            new_password = serializer.validated_data['new_password']
+            
+            # Set new password
+            user = reset_request.user
+            user.set_password(new_password)
+            user.save()
+            
+            # Mark reset token as used
+            reset_request.is_used = True
+            reset_request.save()
+            
+            return Response({
+                'message': 'Password reset successfully! You can now login with your new password.'
+            }, status=status.HTTP_200_OK)
+        
+        return Response({
+            'message': 'Password reset failed. Please check the errors below.',
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
