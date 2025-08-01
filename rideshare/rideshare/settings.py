@@ -206,9 +206,6 @@ TWILIO_ACCOUNT_SID = config('TWILIO_ACCOUNT_SID', default='')
 TWILIO_AUTH_TOKEN = config('TWILIO_AUTH_TOKEN', default='')
 TWILIO_PHONE_NUMBER = config('TWILIO_PHONE_NUMBER', default='')
 
-# Termii Configuration
-TERMII_API_KEY = config('TERMII_API_KEY', default='')
-TERMII_SENDER_ID = config('TERMII_SENDER_ID', default='RideOn')
 
 # Phone Verification Settings
 PHONE_VERIFICATION_CODE_LENGTH = 6
