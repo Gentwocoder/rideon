@@ -6,7 +6,9 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from core.views import (RegisterView, CustomTokenView, ProfileView, DriverProfileView, 
                        LogoutView, LoginView, VerifyEmailView, send_verification_code,
                        verify_phone_code, phone_verification_status, ChangePasswordView,
-                       ForgotPasswordView, ResetPasswordView)
+                       ForgotPasswordView, ResetPasswordView, DashboardView, DriverDashboardView,
+                       ProfileTemplateView, PhoneVerificationView, ChangePasswordPageView)
+from rideon.views import RequestRideView
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import TemplateView
@@ -46,13 +48,13 @@ urlpatterns = [
     path("", TemplateView.as_view(template_name="home.html"), name="home"),
     path("login/", TemplateView.as_view(template_name="login.html"), name="login"),
     path("register/", TemplateView.as_view(template_name="register.html"), name="register"),
-    path("dashboard/", TemplateView.as_view(template_name="dashboard.html"), name="dashboard"),
-    path("driver-dashboard/", TemplateView.as_view(template_name="driver_dashboard.html"), name="driver_dashboard"),
-    path("request-ride/", TemplateView.as_view(template_name="request_ride.html"), name="request_ride"),
-    path("my-profile/", TemplateView.as_view(template_name="profile.html"), name="profile"),
-    path("verify-phone/", TemplateView.as_view(template_name="phone_verification.html"), name="phone_verification"),
+    path("dashboard/", DashboardView.as_view(), name="dashboard"),
+    path("driver-dashboard/", DriverDashboardView.as_view(), name="driver_dashboard"),
+    path("request-ride/", RequestRideView.as_view(), name="request_ride"),
+    path("my-profile/", ProfileTemplateView.as_view(), name="profile"),
+    path("verify-phone/", PhoneVerificationView.as_view(), name="phone_verification"),
     path("verify-email/<uuid:token>/", TemplateView.as_view(template_name="email_verification.html"), name="email_verification"),
-    path("change-password/", TemplateView.as_view(template_name="change_password.html"), name="change_password_page"),
+    path("change-password/", ChangePasswordPageView.as_view(), name="change_password_page"),
     path("forgot-password/", TemplateView.as_view(template_name="forgot_password.html"), name="forgot_password_page"),
     path("reset-password/<uuid:token>/", TemplateView.as_view(template_name="reset_password.html"), name="reset_password_page"),
 ]

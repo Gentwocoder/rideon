@@ -22,7 +22,14 @@ function redirectToDashboard() {
 
 // Check if user is authenticated
 function isAuthenticated() {
-    const token = localStorage.getItem('access_token');
+    // First check localStorage
+    let token = localStorage.getItem('access_token');
+    
+    // If not in localStorage, check cookies
+    if (!token) {
+        token = getCookie('access_token');
+    }
+    
     if (!token) return false;
     
     try {

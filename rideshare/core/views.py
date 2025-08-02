@@ -167,10 +167,31 @@ class LoginView(TokenObtainPairView):
                             status=status.HTTP_400_BAD_REQUEST)
 
         tokens = super().post(request)
-
-        return Response({"message": "Logged in successfully", "tokens": tokens.data,
+        
+        # Create response with tokens
+        response = Response({"message": "Logged in successfully", "tokens": tokens.data,
                          "data": {"email": user.email, "user_type": user.user_type}, "status": "success"},
                         status=status.HTTP_200_OK)
+        
+        # Set tokens as HTTP-only cookies for backend authentication
+        response.set_cookie(
+            'access_token',
+            tokens.data['access'],
+            max_age=settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'].total_seconds(),
+            httponly=True,
+            secure=False,  # Set to True in production with HTTPS
+            samesite='Lax'
+        )
+        response.set_cookie(
+            'refresh_token',
+            tokens.data['refresh'],
+            max_age=settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'].total_seconds(),
+            httponly=True,
+            secure=False,  # Set to True in production with HTTPS
+            samesite='Lax'
+        )
+        
+        return response
     
 
 class VerifyEmailView(APIView):
@@ -210,23 +231,35 @@ class LogoutView(APIView):
             
             if not refresh_token:
                 # If no refresh token provided, consider it a successful logout
-                return Response({
+                response = Response({
+                    "message": "Logout successful"
+                }, status=status.HTTP_200_OK)
+            else:
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+                response = Response({
                     "message": "Logout successful"
                 }, status=status.HTTP_200_OK)
             
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-            return Response({
-                "message": "Logout successful"
-            }, status=status.HTTP_200_OK)
+            # Clear the authentication cookies
+            response.delete_cookie('access_token')
+            response.delete_cookie('refresh_token')
+            
+            return response
             
         except Exception as e:
             # Even if token blacklisting fails, consider logout successful
             # This handles cases where token is already invalid/expired
             print(f"Logout error (non-critical): {str(e)}")  # Debug log
-            return Response({
+            response = Response({
                 "message": "Logout successful"
             }, status=status.HTTP_200_OK)
+            
+            # Clear the authentication cookies even if blacklisting failed
+            response.delete_cookie('access_token')
+            response.delete_cookie('refresh_token')
+            
+            return response
 
 
 # Phone Verification Views
@@ -510,3 +543,76 @@ class ResetPasswordView(APIView):
             'message': 'Password reset failed. Please check the errors below.',
             'errors': serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
+
+
+# Protected Template Views with JWT Authentication
+from django.views.generic import TemplateView
+from django.conf import settings
+from .mixins import JWTRequiredMixin, RiderRequiredMixin, DriverRequiredMixin
+
+class DashboardView(RiderRequiredMixin, TemplateView):
+    """
+    Dashboard view for riders - requires JWT authentication and rider permissions
+    """
+    template_name = 'dashboard.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['user'] = self.request.user
+        context['user_type'] = self.request.user.user_type
+        return context
+
+
+class DriverDashboardView(DriverRequiredMixin, TemplateView):
+    """
+    Dashboard view for drivers - requires JWT authentication and driver permissions
+    """
+    template_name = 'driver_dashboard.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['user'] = self.request.user
+        context['user_type'] = self.request.user.user_type
+        return context
+
+
+class ProfileTemplateView(JWTRequiredMixin, TemplateView):
+    """
+    Profile view - requires JWT authentication (accessible to both riders and drivers)
+    """
+    template_name = 'profile.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['user'] = self.request.user
+        context['user_type'] = self.request.user.user_type
+        
+        # Add user profile data based on user type
+        if hasattr(self.request.user, 'driverprofile'):
+            context['driver_profile'] = self.request.user.driverprofile
+        
+        return context
+
+
+class PhoneVerificationView(JWTRequiredMixin, TemplateView):
+    """
+    Phone verification view - requires JWT authentication
+    """
+    template_name = 'phone_verification.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['user'] = self.request.user
+        return context
+
+
+class ChangePasswordPageView(JWTRequiredMixin, TemplateView):
+    """
+    Change password page view - requires JWT authentication
+    """
+    template_name = 'change_password.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['user'] = self.request.user
+        return context

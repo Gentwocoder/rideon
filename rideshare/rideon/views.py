@@ -3,6 +3,9 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db.models import Q, Avg
+from django.views.generic import TemplateView
+from django.conf import settings
+from core.mixins import JWTRequiredMixin, RiderRequiredMixin
 from .models import Ride, RideRequest, RideMessage, Rating
 from .serializers import RideSerializer, RideCreateSerializer, RideRequestSerializer, RideMessageSerializer, RatingSerializer, RatingCreateSerializer
 from .utils import get_fare_info
@@ -10,11 +13,6 @@ from .utils import get_fare_info
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
-# @extend_schema(responses={200: RideSerializer(many=True)},
-#                parameters=[
-#                    OpenApiParameter(name='status', type=str, description='Filter rides by status'),
-#                    OpenApiParameter(name='driver', type=str, description='Filter rides by driver ID')
-#                ])
 def rides(request):
     if request.method == 'GET':
         # Get rides for the current user
@@ -243,3 +241,13 @@ def rating_detail(request, rating_id):
 def fare_info(request):
     """Get current fare calculation information"""
     return Response(get_fare_info())
+
+class RequestRideView(RiderRequiredMixin, TemplateView):
+    """Custom view for request ride page with Google Maps API key and JWT authentication"""
+    template_name = 'request_ride.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['google_maps_api_key'] = settings.GOOGLE_MAPS_API_KEY
+        context['user'] = self.request.user  # Add user to context
+        return context

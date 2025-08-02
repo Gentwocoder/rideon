@@ -7,7 +7,7 @@
 <!-- Google Maps API with Web Components - Multiple Loading Approaches -->
 <!-- Note: Using places library which includes both legacy Autocomplete and new PlaceAutocompleteElement -->
 <script async defer 
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAJL3Z0Zq_gFty1Y9fp9OAzAv7T40P0m9U&callback=initGoogleMaps&libraries=places,geometry&v=beta"
+    src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initGoogleMaps&libraries=places,geometry&v=beta"
     onerror="handleGoogleMapsError()">
 </script>
 <!-- Alternative Google Maps API script without beta -->
@@ -164,7 +164,7 @@
 <div id="alert-container" class="position-fixed" style="top: 20px; right: 20px; z-index: 9999; max-width: 400px;">
 </div>
 
-<gmpx-api-loader key="AIzaSyAJL3Z0Zq_gFty1Y9fp9OAzAv7T40P0m9U" solution-channel="GMP_GE_rideshare_v1">
+<gmpx-api-loader key="{{ google_maps_api_key }}" solution-channel="GMP_GE_rideshare_v1">
 </gmpx-api-loader>
 <div class="container py-4">
     <div class="row justify-content-center">
@@ -451,6 +451,9 @@ var FARE_CONFIG = {
     currency_symbol: '₦'
 };
 
+// Google Maps API Key from backend
+var GOOGLE_MAPS_API_KEY = '{{ google_maps_api_key }}';
+
 // Global variables for map system
 let map;
 let pickupMarker;
@@ -522,7 +525,7 @@ function tryFallbackGoogleMaps() {
     
     // Create new script tag with stable version
     const script = document.createElement('script');
-    script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyAJL3Z0Zq_gFty1Y9fp9OAzAv7T40P0m9U&callback=initTraditionalGoogleMaps&libraries=places,geometry';
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&callback=initTraditionalGoogleMaps&libraries=places,geometry`;
     script.async = true;
     script.defer = true;
     script.onerror = () => {
@@ -822,7 +825,7 @@ function injectGoogleMapsScript() {
     
     // Create new script element
     const script = document.createElement('script');
-    script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyAJL3Z0Zq_gFty1Y9fp9OAzAv7T40P0m9U&callback=initGoogleMaps&libraries=places,geometry&v=beta';
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&callback=initGoogleMaps&libraries=places,geometry&v=beta`;
     script.async = true;
     script.defer = true;
     
