@@ -76,6 +76,14 @@ function formatCurrency(amount) {
     }).format(amount);
 }
 
+// Safe format fare (handles string and number inputs)
+function formatFare(fare) {
+    if (!fare && fare !== 0) return '₦0.00';
+    const numericFare = parseFloat(fare);
+    if (isNaN(numericFare)) return '₦0.00';
+    return `₦${numericFare.toFixed(2)}`;
+}
+
 // Format distance
 function formatDistance(distance) {
     if (!distance) return 'N/A';
@@ -92,6 +100,46 @@ function formatDuration(minutes) {
         return `${hours}h ${mins}m`;
     }
     return `${mins}m`;
+}
+
+// Calculate estimated fare for a ride
+function calculateEstimatedFare(ride) {
+    const baseFare = 100; // Base fare in Naira
+    const perKmRate = 50; // Rate per km in Naira
+    
+    // If distance is available, use it for calculation
+    if (ride.distance) {
+        return baseFare + (ride.distance * perKmRate);
+    }
+    
+    // If we have coordinates, calculate straight-line distance
+    if (ride.pickup_latitude && ride.pickup_longitude && 
+        ride.dropoff_latitude && ride.dropoff_longitude) {
+        
+        const distance = calculateDistance(
+            ride.pickup_latitude, 
+            ride.pickup_longitude,
+            ride.dropoff_latitude, 
+            ride.dropoff_longitude
+        );
+        return baseFare + (distance * perKmRate);
+    }
+    
+    // Default to base fare if no distance info available
+    return baseFare;
+}
+
+// Calculate distance between two coordinates (Haversine formula)
+function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371; // Radius of the Earth in kilometers
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const distance = R * c; // Distance in kilometers
+    return distance;
 }
 
 // Show loading overlay
