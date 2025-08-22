@@ -164,6 +164,15 @@
                         <!-- Rides will be loaded here -->
                     </div>
                     
+                    <!-- Pagination for rides -->
+                    <div id="rides-pagination" class="d-none">
+                        <nav aria-label="Rides pagination">
+                            <ul class="pagination justify-content-center mb-0">
+                                <!-- Pagination buttons will be generated here -->
+                            </ul>
+                        </nav>
+                    </div>
+                    
                     <div id="no-rides" class="text-center py-5 d-none">
                         <i class="fas fa-car text-muted display-4 mb-3"></i>
                         <h5 class="text-muted">No rides found</h5>
@@ -182,6 +191,9 @@
 {% block extra_js %}
 <script>
 let allRides = [];
+let currentPage = 1;
+const ridesPerPage = 5;
+let filteredRides = [];
 
 document.addEventListener('DOMContentLoaded', function() {
     loadDashboardData();
@@ -223,7 +235,9 @@ async function loadRides() {
         
         if (response.ok) {
             allRides = await response.json();
-            displayRides(allRides);
+            filteredRides = [...allRides]; // Initialize filtered rides
+            currentPage = 1; // Reset to first page
+            displayRides(filteredRides);
             updateStatistics(allRides);
         } else {
             throw new Error('Failed to load rides');
@@ -240,11 +254,13 @@ function displayRides(rides) {
     const ridesContainer = document.getElementById('rides-container');
     const ridesLoading = document.getElementById('rides-loading');
     const noRides = document.getElementById('no-rides');
+    const paginationContainer = document.getElementById('rides-pagination');
     
     ridesLoading.classList.add('d-none');
     
     if (rides.length === 0) {
         ridesContainer.classList.add('d-none');
+        paginationContainer.classList.add('d-none');
         noRides.classList.remove('d-none');
         return;
     }
@@ -252,7 +268,13 @@ function displayRides(rides) {
     ridesContainer.classList.remove('d-none');
     noRides.classList.add('d-none');
     
-    const ridesHTML = rides.map(ride => `
+    // Calculate pagination
+    const totalPages = Math.ceil(rides.length / ridesPerPage);
+    const startIndex = (currentPage - 1) * ridesPerPage;
+    const endIndex = startIndex + ridesPerPage;
+    const currentRides = rides.slice(startIndex, endIndex);
+    
+    const ridesHTML = currentRides.map(ride => `
         <div class="card ride-card mb-3">
             <div class="card-body">
                 <div class="row align-items-center">
@@ -323,6 +345,9 @@ function displayRides(rides) {
     `).join('');
     
     ridesContainer.innerHTML = ridesHTML;
+    
+    // Update pagination
+    updatePagination(totalPages, rides.length);
 }
 
 function updateStatistics(rides) {
@@ -340,12 +365,91 @@ function updateStatistics(rides) {
 }
 
 function filterRides(status) {
-    let filteredRides = allRides;
-    
     if (status) {
         filteredRides = allRides.filter(ride => ride.status === status);
+    } else {
+        filteredRides = [...allRides];
     }
     
+    currentPage = 1; // Reset to first page when filtering
+    displayRides(filteredRides);
+}
+
+function updatePagination(totalPages, totalRides) {
+    const paginationContainer = document.getElementById('rides-pagination');
+    const pagination = paginationContainer.querySelector('.pagination');
+    
+    if (totalPages <= 1) {
+        paginationContainer.classList.add('d-none');
+        return;
+    }
+    
+    paginationContainer.classList.remove('d-none');
+    
+    let paginationHTML = '';
+    
+    // Previous button
+    paginationHTML += `
+        <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="changePage(${currentPage - 1})" aria-label="Previous">
+                <span aria-hidden="true">&laquo;</span>
+            </a>
+        </li>
+    `;
+    
+    // Page numbers
+    for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) {
+            paginationHTML += `
+                <li class="page-item ${i === currentPage ? 'active' : ''}">
+                    <a class="page-link" href="#" onclick="changePage(${i})">${i}</a>
+                </li>
+            `;
+        } else if (i === currentPage - 2 || i === currentPage + 2) {
+            paginationHTML += `
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+            `;
+        }
+    }
+    
+    // Next button
+    paginationHTML += `
+        <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="changePage(${currentPage + 1})" aria-label="Next">
+                <span aria-hidden="true">&raquo;</span>
+            </a>
+        </li>
+    `;
+    
+    pagination.innerHTML = paginationHTML;
+    
+    // Update pagination info
+    const startItem = (currentPage - 1) * ridesPerPage + 1;
+    const endItem = Math.min(currentPage * ridesPerPage, totalRides);
+    
+    // Add pagination info below the pagination
+    let paginationInfo = paginationContainer.querySelector('.pagination-info');
+    if (!paginationInfo) {
+        paginationInfo = document.createElement('div');
+        paginationInfo.className = 'pagination-info text-center mt-2';
+        paginationContainer.appendChild(paginationInfo);
+    }
+    
+    paginationInfo.innerHTML = `
+        <small class="text-muted">
+            Showing ${startItem} to ${endItem} of ${totalRides} rides
+        </small>
+    `;
+}
+
+function changePage(page) {
+    if (page < 1 || page > Math.ceil(filteredRides.length / ridesPerPage)) {
+        return;
+    }
+    
+    currentPage = page;
     displayRides(filteredRides);
 }
 
