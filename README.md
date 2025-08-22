@@ -9,6 +9,8 @@ A modern, full-featured ride sharing platform built with Django REST Framework a
 - **User Types**: Support for Riders, Drivers, and Admins with role-based access
 - **Email Verification**: Mandatory email verification for account activation
 - **Phone Verification**: SMS-based phone number verification with Twilio integration
+- **Password Security**: Enhanced password requirements with strength validation
+- **Password Management**: Secure change password and forgot password features
 - **Profile Management**: Comprehensive user and driver profile management
 - **Driver Profiles**: Vehicle information, license management, and availability status
 - **Enhanced Security**: JWT authentication with refresh token support
@@ -187,6 +189,9 @@ python manage.py runserver
 - `POST /api/send-verification-code/` - Send SMS verification
 - `POST /api/verify-phone-code/` - Verify SMS code
 - `GET /api/phone-verification-status/` - Check verification status
+- `POST /auth/change-password/` - Change password for authenticated users
+- `POST /auth/forgot-password/` - Request password reset email
+- `POST /auth/reset-password/` - Reset password using token
 
 ### Profile Management
 - `GET/PUT /profile/` - User profile CRUD operations
@@ -232,7 +237,10 @@ rideshare/
 │   ├── driver_dashboard.html # Driver dashboard with earnings
 │   ├── request_ride.html     # Interactive ride booking with maps
 │   ├── phone_verification.html # Phone verification interface
-│   └── email_verification.html # Email verification page
+│   ├── email_verification.html # Email verification page
+│   ├── change_password.html  # Password change interface
+│   ├── forgot_password.html  # Password reset request page
+│   └── reset_password.html   # Password reset with token validation
 ├── static/                   # Static assets
 │   ├── css/main.css          # Enhanced styling
 │   └── js/                   # JavaScript modules
