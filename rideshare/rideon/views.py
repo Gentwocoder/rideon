@@ -1,54 +1,18 @@
-# from django.shortcuts import render
-# from rest_framework import generics, permissions, status
-# from rest_framework.response import Response
-# from rest_framework import viewsets
-# from django.db.models import Q
-# from .models import Ride, RideRequest
-# from .serializers import RideSerializer, RideCreateSerializer, RideRequestSerializer
-
-# # Create your views here.
-# class RideView(viewsets.ViewSet):
-#     queryset = Ride.objects.all()
-#     permission_classes = [permissions.IsAuthenticated]
-    
-#     def list(self, request):
-#         user_rides = Ride.objects.filter(
-#             Q(rider=request.user) | Q(driver=request.user)
-#         )
-#         serializer = RideSerializer(user_rides, many=True)
-#         return Response(serializer.data)
-    
-#     def create(self, request):
-#         serializer = RideCreateSerializer(data=request.data)
-#         if serializer.is_valid():
-#             ride = serializer.save(rider=request.user)
-#             return Response(RideSerializer(ride).data, status=status.HTTP_201_CREATED)
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-# class AvailableRidesView(generics.ListAPIView):
-#     queryset = Ride.objects.filter(status='pending')
-#     serializer_class = RideSerializer
-#     permission_classes = [permissions.IsAuthenticated]
-
-#     def get_queryset(self):
-#         return self.queryset.exclude(rider=self.request.user)
-    
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db.models import Q, Avg
+from django.views.generic import TemplateView
+from django.conf import settings
+from core.mixins import JWTRequiredMixin, RiderRequiredMixin
 from .models import Ride, RideRequest, RideMessage, Rating
 from .serializers import RideSerializer, RideCreateSerializer, RideRequestSerializer, RideMessageSerializer, RatingSerializer, RatingCreateSerializer
+from .utils import get_fare_info
 # from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
-# @extend_schema(responses={200: RideSerializer(many=True)},
-#                parameters=[
-#                    OpenApiParameter(name='status', type=str, description='Filter rides by status'),
-#                    OpenApiParameter(name='driver', type=str, description='Filter rides by driver ID')
-#                ])
 def rides(request):
     if request.method == 'GET':
         # Get rides for the current user
@@ -271,3 +235,19 @@ def rating_detail(request, rating_id):
     
     except Rating.DoesNotExist:
         return Response({'error': 'Rating not found'}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def fare_info(request):
+    """Get current fare calculation information"""
+    return Response(get_fare_info())
+
+class RequestRideView(RiderRequiredMixin, TemplateView):
+    """Custom view for request ride page with Google Maps API key and JWT authentication"""
+    template_name = 'request_ride.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['google_maps_api_key'] = settings.GOOGLE_MAPS_API_KEY
+        context['user'] = self.request.user  # Add user to context
+        return context

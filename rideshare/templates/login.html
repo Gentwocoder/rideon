@@ -150,10 +150,19 @@ function togglePassword() {
     }
 }
 
-// Redirect if already logged in
+// Redirect if already logged in - but prevent infinite loops
 document.addEventListener('DOMContentLoaded', function() {
-    if (isAuthenticated()) {
-        redirectToDashboard();
+    // Check if we're already on login page to prevent loops
+    if (window.location.pathname === '/login/') {
+        // Only redirect if we have valid authentication AND user info
+        const token = localStorage.getItem('access_token') || getCookie('access_token');
+        const userType = localStorage.getItem('user_type');
+        const userEmail = localStorage.getItem('user_email');
+        
+        if (token && userType && userEmail && isAuthenticated()) {
+            console.log('User already authenticated, redirecting...');
+            redirectToDashboard();
+        }
     }
 });
 </script>

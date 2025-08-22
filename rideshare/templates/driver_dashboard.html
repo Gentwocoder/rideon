@@ -394,7 +394,7 @@ function displayAvailableRides(rides) {
         <div class="card ride-card mb-3">
             <div class="card-body">
                 <div class="row align-items-center">
-                    <div class="col-md-6">
+                    <div class="col-md-5">
                         <div class="d-flex align-items-start">
                             <div class="me-3">
                                 <i class="fas fa-map-marker-alt text-success fs-5"></i>
@@ -408,9 +408,13 @@ function displayAvailableRides(rides) {
                         </div>
                         ${ride.notes ? `<small class="text-muted"><i class="fas fa-comment me-1"></i>${ride.notes}</small>` : ''}
                     </div>
-                    <div class="col-md-3 text-center">
+                    <div class="col-md-2 text-center">
                         <small class="text-muted">Requested</small>
                         <p class="mb-0 fw-semibold">${formatDate(ride.created_at)}</p>
+                    </div>
+                    <div class="col-md-2 text-center">
+                        <small class="text-muted">Estimated Fare</small>
+                        <p class="mb-0 fw-semibold text-success">₦${calculateEstimatedFare(ride).toFixed(2)}</p>
                     </div>
                     <div class="col-md-3 text-end">
                         <button class="btn btn-success" onclick="showAcceptRideModal(${ride.id})">
@@ -461,7 +465,7 @@ function displayDriverRides(rides) {
                     </div>
                     <div class="col-md-2 text-center">
                         <small class="text-muted">Fare</small>
-                        <p class="mb-0 fw-semibold">₦${(ride.fare || 0).toFixed(2)}</p>
+                        <p class="mb-0 fw-semibold">${formatFare(ride.fare)}</p>
                     </div>
                     <div class="col-md-2 text-end">
                         ${ride.status === 'accepted' ? `
@@ -596,6 +600,16 @@ async function showAcceptRideModal(rideId) {
                     <div class="col-md-6">
                         <h6><i class="fas fa-flag text-danger me-2"></i>Dropoff</h6>
                         <p>${ride.dropoff_location}</p>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-dollar-sign text-success me-2"></i>Estimated Fare</h6>
+                        <p class="text-success fw-bold fs-5">₦${calculateEstimatedFare(ride).toFixed(2)}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-credit-card me-2"></i>Payment Method</h6>
+                        <p>${ride.payment_method || 'Cash'}</p>
                     </div>
                 </div>
                 ${ride.notes ? `

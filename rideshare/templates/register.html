@@ -244,7 +244,7 @@ document.getElementById('registerForm').addEventListener('submit', async functio
         data.vehicle_plate = formData.get('vehicle_plate') || '';
     }
     
-    console.log('Sending registration data:', data);
+    //console.log('Sending registration data:', data);
     
     try {
         const response = await fetch('/auth/register/', {

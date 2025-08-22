@@ -16,7 +16,7 @@ SECRET_KEY = config("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]
 
 
 # Application definition
@@ -206,8 +206,11 @@ TWILIO_ACCOUNT_SID = config('TWILIO_ACCOUNT_SID', default='')
 TWILIO_AUTH_TOKEN = config('TWILIO_AUTH_TOKEN', default='')
 TWILIO_PHONE_NUMBER = config('TWILIO_PHONE_NUMBER', default='')
 
+
 # Phone Verification Settings
 PHONE_VERIFICATION_CODE_LENGTH = 6
 PHONE_VERIFICATION_CODE_EXPIRY_MINUTES = 10
 PHONE_VERIFICATION_MAX_ATTEMPTS = 3
 
+# Google Maps Configuration
+GOOGLE_MAPS_API_KEY = config('GOOGLE_MAPS_API_KEY', default='')

@@ -311,7 +311,7 @@ function displayRides(rides) {
                     <div class="row mt-2">
                         <div class="col-12">
                             <small class="text-muted">
-                                Fare: ₦${(ride.fare || 0).toFixed(2)} | 
+                                Fare: ${formatFare(ride.fare)} | 
                                 Distance: ${formatDistance(ride.distance)} |
                                 Duration: ${formatDuration(ride.duration)}
                             </small>
