@@ -15,11 +15,13 @@ djangorestframework==3.16.0
 djangorestframework_simplejwt==5.5.0
 drf-spectacular==0.28.0
 frozenlist==1.7.0
+gunicorn==23.0.0
 idna==3.10
 inflection==0.5.1
 jsonschema==4.24.0
 jsonschema-specifications==2025.4.1
 multidict==6.6.3
+packaging==25.0
 pillow==11.3.0
 propcache==0.3.2
 psycopg2==2.9.10
